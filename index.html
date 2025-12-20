@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>病床管理アプリ</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🛏️</div>
+        <div>
+          <h1>病床管理アプリ</h1>
+          <p class="subtitle">ログインして病棟を選択</p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button id="btnLogout" class="btn btn-ghost hidden" type="button">ログアウト</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Auth Card -->
+      <section id="authView" class="card">
+        <h2 class="card-title">ログイン / 新規登録</h2>
+
+        <div class="form">
+          <label class="label">
+            <span>ID（同じIDは使用できません）</span>
+            <input id="inputId" class="input" type="text" autocomplete="username" placeholder="例：yokoi_ward" />
+          </label>
+
+          <label class="label">
+            <span>PASS</span>
+            <input id="inputPass" class="input" type="password" autocomplete="current-password" placeholder="パスワード" />
+          </label>
+
+          <div class="row">
+            <button id="btnLogin" class="btn btn-primary" type="button">ログイン</button>
+            <button id="btnSignup" class="btn btn-outline" type="button">新規登録</button>
+          </div>
+
+          <p class="hint">
+            ※ このデモは GitHub Pages（静的サイト）向けのため、ユーザー情報はこのブラウザの localStorage に保存されます。
+            端末が変わると共有されません。
+          </p>
+
+          <div id="authMsg" class="msg" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+<!-- Ward Select Card -->
+<section id="wardView" class="card hidden">
+  <h2 class="card-title">病棟を選択</h2>
+  <p class="muted">ログイン中：<span id="currentUser"></span></p>
+
+  <!-- 病棟数トグル（1-20） -->
+  <div class="wardcount">
+    <div class="wardcount-head">
+      <div>
+        <p class="wardcount-title">病棟数</p>
+        <p class="wardcount-sub">1〜20 の範囲で変更できます（ユーザーごとに保存）</p>
+      </div>
+      <div class="wardcount-badge">
+        <span id="wardCountLabel">6</span>
+      </div>
+    </div>
+
+    <input id="wardCount" class="range" type="range" min="1" max="20" step="1" value="6" />
+    <div class="wardcount-actions">
+      <button id="btnSaveWardCount" class="btn btn-outline" type="button">病棟数を保存</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div id="wardGrid" class="grid"></div>
+</section>
+
+<!-- Ward Sheet View -->
+<section id="sheetView" class="card hidden">
+  <div class="sheet-head">
+    <button id="btnBackToWards" class="btn btn-ghost" type="button">← 病棟選択へ</button>
+    <div>
+      <h2 class="card-title" style="margin:0;">病棟シート</h2>
+      <p class="muted" style="margin:6px 0 0;">
+        対象：<span id="sheetWardName"></span>
+      </p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ローカル簡易スプレッドシート -->
+  <h3 class="sheet-subtitle">院内シート（ローカル保存）</h3>
+  <p class="muted">セルをクリックして編集 → 自動保存します。</p>
+
+<div class="sheet-toolbar">
+  <div class="sheet-toolbar-left">
+    <button id="btnAddRow" class="btn btn-outline" type="button">＋ 行を追加</button>
+    <button id="btnClearSheet" class="btn" type="button">クリア</button>
+  </div>
+
+  <div class="sheet-toolbar-right">
+    <input id="sheetSearch" class="input" type="search" placeholder="検索（患者ID/病名/DPC/退院見込み/メモ…）" />
+    <button id="btnResetSort" class="btn btn-outline" type="button">並べ替え解除</button>
+  </div>
+</div>
+
+
+  <div class="table-wrap">
+    <table id="sheetTable" class="sheet-table"></table>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Google スプレッドシート（病棟ごと） -->
+  <h3 class="sheet-subtitle">Googleスプレッドシート（病棟ごと）</h3>
+  <p class="muted">URLを保存しておくと、病棟ごとにすぐ開けます。</p>
+
+  <div class="row">
+    <input id="gsheetUrl" class="input" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
+    <button id="btnSaveGsheetUrl" class="btn btn-outline" type="button">URL保存</button>
+    <button id="btnOpenGsheet" class="btn btn-primary" type="button">開く</button>
+  </div>
+
+  <div id="sheetMsg" class="msg" role="status" aria-live="polite"></div>
+</section>
+    </main>
+
+    <footer class="footer">
+      <small>© 病床管理（プロトタイプ）</small>
+    </footer>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
