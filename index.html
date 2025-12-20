@@ -54,33 +54,57 @@
 <!-- Ward Select Card -->
 <section id="wardView" class="card hidden">
   <h2 class="card-title">病棟を選択</h2>
-  <p class="muted">ログイン中：<span id="currentUser"></span></p>
 
-  <!-- 病棟数トグル（1-20） -->
+  <p class="muted">
+    ログイン中：<span id="currentUser"></span><br>
+    本日（日本時間）：<span id="todayJst"></span>
+  </p>
+
+
+  <!-- 病棟の追加（最大20） -->
   <div class="wardcount">
     <div class="wardcount-head">
       <div>
-        <p class="wardcount-title">病棟数</p>
-        <p class="wardcount-sub">1〜20 の範囲で変更できます（ユーザーごとに保存）</p>
+        <p class="wardcount-title">病棟</p>
+        <p class="wardcount-sub">「病棟を追加」で増やせます（最大20／ユーザーごとに保存）</p>
       </div>
       <div class="wardcount-badge">
-        <span id="wardCountLabel">6</span>
+        <span id="wardCountLabel">0</span>
       </div>
     </div>
 
-    <input id="wardCount" class="range" type="range" min="1" max="20" step="1" value="6" />
     <div class="wardcount-actions">
-      <button id="btnSaveWardCount" class="btn btn-outline" type="button">病棟数を保存</button>
+      <button id="btnAddWard" class="btn btn-outline" type="button">＋ 病棟を追加</button>
     </div>
   </div>
+
 
   <div class="divider"></div>
 
   <div id="wardGrid" class="grid"></div>
+
+  <div id="wardMsg" class="msg" role="status" aria-live="polite"></div>
 </section>
 
 <!-- Ward Sheet View -->
 <section id="sheetView" class="card hidden">
+<!-- 修正箇所: sheetView内のシートツールバーにボタン追加 -->
+<!-- 行 146 付近 -->
+<div class="sheet-toolbar-left">
+    <label class="label">
+  <span>病床数</span>
+  <input
+    id="inputBedCount"
+    class="input"
+    type="number"
+    min="0"
+    max="200"
+    step="1"
+    placeholder="例：40"
+  />
+</label>
+    <button id="btnDischargeOptimize" class="btn btn-primary" type="button">退院調整</button>
+  </div>
   <div class="sheet-head">
     <button id="btnBackToWards" class="btn btn-ghost" type="button">← 病棟選択へ</button>
     <div>
@@ -99,8 +123,19 @@
 
 <div class="sheet-toolbar">
   <div class="sheet-toolbar-left">
-    <button id="btnAddRow" class="btn btn-outline" type="button">＋ 行を追加</button>
-    <button id="btnClearSheet" class="btn" type="button">クリア</button>
+    <label class="label">
+  <span>病床数</span>
+  <input
+    id="inputBedCount"
+    class="input"
+    type="number"
+    min="0"
+    max="200"
+    step="1"
+    placeholder="例：40"
+  />
+</label>
+
   </div>
 
   <div class="sheet-toolbar-right">
@@ -116,15 +151,6 @@
 
   <div class="divider"></div>
 
-  <!-- Google スプレッドシート（病棟ごと） -->
-  <h3 class="sheet-subtitle">Googleスプレッドシート（病棟ごと）</h3>
-  <p class="muted">URLを保存しておくと、病棟ごとにすぐ開けます。</p>
-
-  <div class="row">
-    <input id="gsheetUrl" class="input" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
-    <button id="btnSaveGsheetUrl" class="btn btn-outline" type="button">URL保存</button>
-    <button id="btnOpenGsheet" class="btn btn-primary" type="button">開く</button>
-  </div>
 
   <div id="sheetMsg" class="msg" role="status" aria-live="polite"></div>
 </section>
@@ -135,6 +161,8 @@
     </footer>
   </div>
 
-  <script src="./app.js"></script>
+<script src="./dpc_master.js"></script>
+<script src="./ward.js"></script>
+<script src="./app.js"></script>
 </body>
 </html>
