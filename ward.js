@@ -29,7 +29,6 @@ const SHEET_COLUMNS = [
   '入院日数',
   '看護必要度',
   '退院見込み',
-  '平均緊急入院数',
   'メモ',
 ];
 
@@ -178,7 +177,6 @@ const btnClearSheet = document.getElementById('btnClearSheet');
 const btnDischargeOptimize = document.getElementById('btnDischargeOptimize');
 const sheetMsg = document.getElementById('sheetMsg');
 const sheetSearch = document.getElementById('sheetSearch');
-const btnResetSort = document.getElementById('btnResetSort');
 
 // ===== Utilities（このモジュール内で完結） =====
 function safeJsonParse(raw, fallback) {
@@ -189,6 +187,24 @@ function saveObj(key, obj) { localStorage.setItem(key, JSON.stringify(obj)); }
 
 function loadSession() { return loadObj(KEY_SESSION, null); }
 
+// 日付表記を YYYY/MM/DD に正規化（YYYY-MM-DD も吸収）
+function normalizeDateSlash(val) {
+  const s = String(val || '').trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{4})[-\/](\d{2})[-\/](\d{2})$/);
+  return m ? `${m[1]}/${m[2]}/${m[3]}` : s;
+}
+
+// input[type="date"] 用：YYYY/MM/DD または YYYY-MM-DD → YYYY-MM-DD
+function normalizeDateIso(val) {
+  const s = String(val || '').trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{4})[-\/](\d{2})[-\/](\d{2})$/);
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
+
+
 function setWardMsg(text, isError = false) {
   if (!wardMsg) return;
   wardMsg.textContent = text || '';
@@ -198,6 +214,29 @@ function setSheetMsg(text, isError = false) {
   if (!sheetMsg) return;
   sheetMsg.textContent = text || '';
   sheetMsg.classList.toggle('error', !!isError);
+}
+function calcOccupancyFromRows(rows) {
+  const bedCount = Array.isArray(rows) ? rows.length : 0;
+
+  const inpatients = (rows || []).reduce((acc, row) => {
+    const pid = String(row?.[COL_PATIENT_ID] ?? '').trim();
+    return acc + (pid ? 1 : 0);
+  }, 0);
+
+  const percent = bedCount > 0 ? (inpatients / bedCount) * 100 : 0;
+
+  return { inpatients, bedCount, percent };
+}
+
+function updateOccupancyUI() {
+  const fracEl = document.getElementById('occFraction');
+  const pctEl = document.getElementById('occPercent');
+  if (!fracEl || !pctEl) return;
+
+  const { inpatients, bedCount, percent } = calcOccupancyFromRows(sheetAllRows);
+
+  fracEl.textContent = `${inpatients}/${bedCount}`;
+  pctEl.textContent = `${Math.round(percent)}%`;
 }
 
 // ===== Wards（新方式：リスト） =====
@@ -282,6 +321,48 @@ function addWardForUser(userId) {
   setWardMsg(`「${finalName}」を追加しました。`);
   renderWardButtons(userId);
 }
+function renameWardForUser(userId, wardId) {
+  const wards = getWardsForUser(userId);
+  const w = wards.find(x => x.id === wardId);
+  if (!w) return;
+
+  const nextName = (window.prompt('病棟名を変更してください', w.name) || '').trim();
+  if (!nextName) return;
+
+  const next = wards.map(x => x.id === wardId ? { ...x, name: nextName } : x);
+  setWardsForUser(userId, next);
+
+  setWardMsg(`「${w.name}」→「${nextName}」に変更しました。`);
+  renderWardButtons(userId);
+
+  if (currentWard && currentWard.id === wardId) {
+    currentWard = { ...currentWard, name: nextName };
+    if (sheetWardName) sheetWardName.textContent = `${currentWard.name}（${currentWard.id}）`;
+  }
+}
+
+async function deleteWardForUser(userId, wardId) {
+  const wards = getWardsForUser(userId);
+  const w = wards.find(x => x.id === wardId);
+  if (!w) return;
+
+  if (wards.length <= 1) {
+    setWardMsg('病棟は最低1つ必要です。', true);
+    return;
+  }
+
+  const ok = window.confirm(`「${w.name}」を削除します。\nこの病棟のシートデータ（患者一覧）も削除されます。よろしいですか？`);
+  if (!ok) return;
+
+  const next = wards.filter(x => x.id !== wardId);
+  setWardsForUser(userId, next);
+
+  await deleteSheetRows(userId, wardId);
+
+  setWardMsg(`「${w.name}」を削除しました。`);
+  renderWardButtons(userId);
+}
+
 
 // ===== IndexedDB（病棟シート保存） =====
 const DB_NAME = 'bedman_db_v1';
@@ -338,6 +419,19 @@ async function dbPutSheet(d, userId, wardId, rows) {
   tx.objectStore(STORE_SHEETS).put(rec);
   await txDone(tx);
 }
+
+async function dbDeleteSheet(d, userId, wardId) {
+  const key = makeSheetKey(userId, wardId);
+  const tx = d.transaction(STORE_SHEETS, 'readwrite');
+  tx.objectStore(STORE_SHEETS).delete(key);
+  await txDone(tx);
+}
+
+async function deleteSheetRows(userId, wardId) {
+  const d = await ensureDb();
+  await dbDeleteSheet(d, userId, wardId);
+}
+
 function makeEmptyRows(rowCount = 3) {
   return Array.from({ length: rowCount }, (_, rIdx) => {
     const row = Array.from({ length: SHEET_COLUMNS.length }, () => '');
@@ -391,22 +485,54 @@ function renderWardButtons(userId) {
 
   wardGrid.innerHTML = '';
   wards.forEach((w, idx) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'ward';
-    btn.innerHTML = `
+    const card = document.createElement('div');
+    card.className = 'ward-card';
+
+    const main = document.createElement('button');
+    main.type = 'button';
+    main.className = 'ward';
+    main.innerHTML = `
       <p class="title">${escapeHtml(w.name)}</p>
       <p class="meta">Ward ID: ${escapeHtml(w.id)} / No.${idx + 1}</p>
     `;
-    btn.addEventListener('click', () => {
+    main.addEventListener('click', () => {
       openWardSheet(w).catch(() => setSheetMsg('読み込みに失敗しました。', true));
     });
-    wardGrid.appendChild(btn);
+
+    const actions = document.createElement('div');
+    actions.className = 'ward-actions';
+
+    const renameBtn = document.createElement('button');
+    renameBtn.type = 'button';
+    renameBtn.className = 'btn btn-outline ward-action-btn';
+    renameBtn.textContent = '名前変更';
+    renameBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      renameWardForUser(userId, w.id);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-outline ward-action-btn danger';
+    delBtn.textContent = '削除';
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteWardForUser(userId, w.id).catch(() => setWardMsg('削除に失敗しました。', true));
+    });
+
+    actions.appendChild(renameBtn);
+    actions.appendChild(delBtn);
+
+    card.appendChild(main);
+    card.appendChild(actions);
+
+    wardGrid.appendChild(card);
   });
 
   if (currentUser) currentUser.textContent = userId;
   updateWardCountBadge(userId);
 }
+
 
 // ===== Search & Sort =====
 function applySearchAndSort() {
@@ -473,7 +599,9 @@ if (inputBedCount) inputBedCount.value = String(sheetAllRows.length);
   sheetView?.classList.remove('hidden');
 
   applySearchAndSort();
+  updateOccupancyUI();
 }
+
 
 function backToWards() {
   currentWard = null;
@@ -513,11 +641,27 @@ const tbody = `
                 </td>
               `;
             }
-            return `
-              <td>
-                <div class="cell" contenteditable="true" data-idx="${it.idx}" data-c="${c}">${escapeHtml(cell)}</div>
-              </td>
-            `;
+if (c === COL_ADMIT_DATE || c === COL_EST_DISCHARGE) {
+  const isoVal = normalizeDateIso(cell);
+  return `
+    <td>
+      <input
+        class="date-input"
+        type="date"
+        data-idx="${it.idx}"
+        data-c="${c}"
+        value="${escapeHtml(isoVal)}"
+      />
+    </td>
+  `;
+}
+
+return `
+  <td>
+    <div class="cell" contenteditable="true" data-idx="${it.idx}" data-c="${c}">${escapeHtml(cell)}</div>
+  </td>
+`;
+
           }).join('')}
         </tr>
       `).join('')}
@@ -546,7 +690,7 @@ el.addEventListener('blur', () => {
     const rowIdx = Number(el.getAttribute('data-idx'));
     const master = window.DPC_MASTER;
 
-    // ① 患者ID → 入院日（既存）
+ 
 // ① 患者ID → 入院日（既存）
 if (c === COL_PATIENT_ID) {
   const pid = (el.textContent ?? '').trim();
@@ -555,10 +699,11 @@ if (c === COL_PATIENT_ID) {
       `.cell[data-idx="${rowIdx}"][data-c="${COL_ADMIT_DATE}"]`
     );
     if (admitEl && (admitEl.textContent ?? '').trim() === '') {
-      admitEl.textContent = todayJSTIsoDate();
+      admitEl.textContent = normalizeDateSlash(todayJSTIsoDate());
     }
   }
 }
+
 
 // ★② 入院日 → 入院日数（自動計算）
 if (c === COL_ADMIT_DATE) {
@@ -570,6 +715,12 @@ if (c === COL_ADMIT_DATE) {
   );
   if (daysEl) daysEl.textContent = days;
 }
+
+// 日付表記を YYYY/MM/DD に正規化（入院日・退院見込み）
+if (c === COL_ADMIT_DATE || c === COL_EST_DISCHARGE) {
+  el.textContent = normalizeDateSlash(el.textContent);
+}
+
 
 
     // ② DPCコード列：コード or 病名 → 期間ⅠⅡⅢ自動反映
@@ -627,6 +778,40 @@ persistSheetFromDom().catch(() => setSheetMsg('保存に失敗しました。', 
         el.blur(); // フォーカスを外して保存トリガー
       }
     });
+// 日付列（カレンダー入力）
+sheetTable.querySelectorAll('input.date-input').forEach(inp => {
+  inp.addEventListener('change', async () => {
+    try {
+      const c = Number(inp.getAttribute('data-c'));
+      const rowIdx = Number(inp.getAttribute('data-idx'));
+      const iso = (inp.value || '').trim();     // YYYY-MM-DD
+      const slash = normalizeDateSlash(iso);    // YYYY/MM/DD
+
+      if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
+      if (!sheetAllRows[rowIdx]) return;
+
+      sheetAllRows[rowIdx][c] = slash;
+
+      // 入院日変更なら入院日数も更新
+      if (c === COL_ADMIT_DATE) {
+        const days = calcAdmitDays(slash);
+        sheetAllRows[rowIdx][COL_ADMIT_DAYS] = days;
+      }
+
+      const session = loadSession();
+      if (session?.userId && currentWard) {
+        await setSheetRows(session.userId, currentWard.id, sheetAllRows);
+      }
+
+      setSheetMsg('保存しました。');
+      updateOccupancyUI();
+      applySearchAndSort();
+    } catch (e) {
+      console.warn(e);
+      setSheetMsg('日付の保存に失敗しました。', true);
+    }
+  });
+});
 
 
   });
@@ -794,7 +979,9 @@ async function persistSheetFromDom() {
 
   await setSheetRows(session.userId, currentWard.id, sheetAllRows);
   setSheetMsg('保存しました。');
+  updateOccupancyUI();
 }
+
 
 async function applyBedCount(count) {
   const session = loadSession();
@@ -824,7 +1011,9 @@ sheetAllRows.push(row);
 
   setSheetMsg(`病床数を ${n} 床に設定しました。`);
   applySearchAndSort();
+  updateOccupancyUI();
 }
+
 
 
 async function clearSheet() {
@@ -836,11 +1025,12 @@ async function clearSheet() {
 
   setSheetMsg('クリアしました。');
   applySearchAndSort();
+  updateOccupancyUI();
 }
+
 
 // ===== 退院調整機能 ===== 
 const COL_EST_DISCHARGE = 10;  // 退院見込み
-const COL_ER_AVG = 11;         // 平均緊急入院数
 const COL_NURSING = 9;         // 看護必要度
 
 /**
@@ -1057,13 +1247,10 @@ inputBedCount?.addEventListener('change', () => {
 
 
 sheetSearch?.addEventListener('input', () => applySearchAndSort());
-btnResetSort?.addEventListener('click', () => {
-  sortState = { col: -1, dir: 0 };
-  applySearchAndSort();
-});
 
 // ✅ 起動時：DBを先に開いておく（失敗しても致命ではない）
 (async function bootstrapWard() {
+
   try {
     await ensureDb();
   } catch (e) {

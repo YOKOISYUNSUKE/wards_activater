@@ -212,6 +212,42 @@ h1{ font-size:18px; margin:0; }
   background:#fff;
   position: relative;
   max-height: calc(100vh - 280px); /* 縦スクロール範囲を制限 */
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.table-wrap::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+
+.table-wrap::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 0 0 14px 0;
+}
+
+.table-wrap::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 6px;
+}
+
+.table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Firefox用 */
+.table-wrap {
+  scrollbar-width: auto;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+/* ===== 日付列：入院日・退院見込み ===== */
+/* 入院日（8列目）, 退院見込み（11列目） */
+.sheet-table td:nth-child(8),
+.sheet-table th:nth-child(8),
+.sheet-table td:nth-child(11),
+.sheet-table th:nth-child(11) {
+  text-align: center;
+  white-space: nowrap;
 }
 
 .sheet-table{
@@ -235,7 +271,7 @@ h1{ font-size:18px; margin:0; }
   z-index: 5; /* ←行データより前面にして“患者IDの行(ヘッダー)”を確実に固定 */
   background: rgba(255,255,255,.95);
   backdrop-filter: blur(6px);
-  text-align: left;
+  text-align: center;
   font-weight: 800;
   box-shadow: 0 1px 0 var(--border);
 }
@@ -245,6 +281,8 @@ h1{ font-size:18px; margin:0; }
   position: sticky;
   left: 0;
   z-index: 3; /* データ行は3 */
+  text-align: right;
+  padding-right: 14px;
   background: #fff;
   box-shadow: 1px 0 0 var(--border); /* 右側に境界線 */
 }
@@ -263,7 +301,11 @@ h1{ font-size:18px; margin:0; }
   z-index: 3;
   background: #fff;
   box-shadow: 1px 0 0 var(--border);
+  text-align: center;
+  min-width: 10ch;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
+
 
 /* 患者ID列のヘッダーは縦横両方固定 */
 .sheet-table th:nth-child(2) {
@@ -317,6 +359,7 @@ h1{ font-size:18px; margin:0; }
   font-size:12px;
   opacity:.65;
 }
+
 /* ===== DPC 期間 色分け ===== */
 /* 列番号は 0 始まり（ベッドNo=0） */
 
@@ -339,6 +382,45 @@ h1{ font-size:18px; margin:0; }
 .sheet-table th:nth-child(1),
 .sheet-table th:nth-child(2) {
   background: rgba(255,255,255,.95) !important;
+}
+/* ===== Occupancy (稼働率) ===== */
+.occ-box{
+  margin-left:auto;
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:14px;
+  padding:10px 12px;
+  min-width: 180px;
+  box-shadow: var(--shadow);
+}
+
+.occ-title{
+  margin:0 0 6px;
+  font-weight:800;
+  font-size:13px;
+}
+
+.occ-row{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.occ-fraction{
+  font-weight:800;
+  font-size:14px;
+}
+
+.occ-percent{
+  font-weight:900;
+  font-size:18px;
+}
+
+.occ-sub{
+  margin:6px 0 0;
+  color:var(--muted);
+  font-size:12px;
 }
 
 
@@ -464,5 +546,68 @@ h1{ font-size:18px; margin:0; }
 
 .bed-type-clear:hover {
   background: #fdecea;
+}
+/* ===== 日付入力（カレンダー） ===== */
+.date-input{
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  outline: none;
+}
+.date-input:focus{
+  box-shadow: 0 0 0 4px rgba(59,130,246,.12);
+  border-radius: 8px;
+}
+/* ===== シート ヘッダー：1行固定 ===== */
+.sheet-table th{
+  white-space: nowrap;
+}
+/* ===== ヘッダー列幅調整 ===== */
+.sheet-table th:nth-child(3){  /* 主病名 */
+  min-width: 120px;
+}
+
+.sheet-table th:nth-child(4){  /* DPCコード */
+  min-width: 100px;
+}
+
+.sheet-table th:nth-child(8),  /* 入院日 */
+.sheet-table th:nth-child(11){ /* 退院見込み */
+  min-width: 110px;
+}
+
+.sheet-table th:nth-child(9){  /* 入院日数 */
+  min-width: 90px;
+}
+
+.sheet-table th:nth-child(10){ /* 看護必要度 */
+  min-width: 110px;
+}
+
+.ward-card{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.ward-actions{
+  display:flex;
+  gap:8px;
+  justify-content:flex-end;
+}
+
+.ward-action-btn{
+  padding:6px 10px;
+  font-size:12px;
+  border-radius:12px;
+}
+
+.ward-action-btn.danger{
+  border-color: rgba(239,68,68,35);
+  color: rgba(185,28,28,100);
 }
 

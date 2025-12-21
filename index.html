@@ -113,7 +113,17 @@
         対象：<span id="sheetWardName"></span>
       </p>
     </div>
+
+    <div class="occ-box" aria-label="稼働率">
+      <p class="occ-title">稼働率</p>
+      <div class="occ-row">
+        <span id="occFraction" class="occ-fraction">0/0</span>
+        <span id="occPercent" class="occ-percent">0%</span>
+      </div>
+      <p class="occ-sub">入院人数/病床数</p>
+    </div>
   </div>
+
 
   <div class="divider"></div>
 
@@ -123,26 +133,13 @@
 
 <div class="sheet-toolbar">
   <div class="sheet-toolbar-left">
-    <label class="label">
-  <span>病床数</span>
-  <input
-    id="inputBedCount"
-    class="input"
-    type="number"
-    min="0"
-    max="200"
-    step="1"
-    placeholder="例：40"
-  />
-</label>
-
   </div>
 
   <div class="sheet-toolbar-right">
     <input id="sheetSearch" class="input" type="search" placeholder="検索（患者ID/病名/DPC/退院見込み/メモ…）" />
-    <button id="btnResetSort" class="btn btn-outline" type="button">並べ替え解除</button>
   </div>
 </div>
+
 
 
   <div class="table-wrap">
