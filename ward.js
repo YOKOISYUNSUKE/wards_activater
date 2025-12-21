@@ -48,7 +48,8 @@ const COL_DPC_II = 5;
 const COL_DPC_III = 6;
 const COL_ADMIT_DATE = 7;
 const COL_ADMIT_DAYS = 8;
-
+const COL_NURSING = 9;
+const COL_EST_DISCHARGE = 10; 
 
 // ==============================
 // JSTの本日（YYYY-MM-DD）を返す
@@ -641,6 +642,24 @@ const tbody = `
                 </td>
               `;
             }
+  // ★★★ 看護必要度 ★★★
+  if (c === COL_NURSING) {
+    const display = String(cell || '').trim();
+    const shown = display || '（クリックして選択）';
+    return `
+      <td>
+        <div class="cell nursing-cell"
+             data-idx="${it.idx}"
+             data-c="${c}"
+             title="クリックしてA/B/Cを選択">
+          ${escapeHtml(shown)}
+        </div>
+      </td>
+    `;
+  }
+
+
+
 if (c === COL_ADMIT_DATE || c === COL_EST_DISCHARGE) {
   const isoVal = normalizeDateIso(cell);
   return `
@@ -824,6 +843,13 @@ sheetTable.querySelectorAll('input.date-input').forEach(inp => {
       showBedTypeSelector(el);
     });
   });
+  // 看護必要度セルクリックでA/B/C選択
+sheetTable.querySelectorAll('.nursing-cell').forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showNursingSelector(el);
+  });
+});
 }
 
 // ベッドタイプ選択UIを表示
@@ -884,6 +910,157 @@ function showBedTypeSelector(el) {
   });
   
   // 外側クリックで閉じる
+  setTimeout(() => {
+    document.addEventListener('click', function closeSelector(e) {
+      if (!selector.contains(e.target)) {
+        selector.remove();
+        document.removeEventListener('click', closeSelector);
+      }
+    });
+  }, 0);
+}
+// ===== 看護必要度（簡易） =====
+// 注意：ここは「項目を好きに編集できる」設計にしています。
+// 公式定義どおりの厳密運用に合わせるなら、病院ルールに合わせて項目と配点を調整してください。
+const NURSING_ITEMS = {
+  A: [
+    { id: 'A1', label: '医療処置1' },
+    { id: 'A2', label: '医療処置2' },
+    { id: 'A3', label: '医療処置3' },
+  ],
+  B: [
+    { id: 'B1', label: 'ADL/介助1' },
+    { id: 'B2', label: 'ADL/介助2' },
+    { id: 'B3', label: 'ADL/介助3' },
+  ],
+  C: [
+    { id: 'C1', label: '特記事項1' },
+    { id: 'C2', label: '特記事項2' },
+  ],
+};
+
+// （必要なら）カテゴリごとの重み
+const NURSING_WEIGHTS = { A: 1, B: 1, C: 1 };
+
+function nursingDetailKey(userId, wardId, rowIdx) {
+  return `bm_nursing_v1|${userId}|${wardId}|${rowIdx}`;
+}
+
+function loadNursingDetail(userId, wardId, rowIdx) {
+  const key = nursingDetailKey(userId, wardId, rowIdx);
+  try {
+    return JSON.parse(localStorage.getItem(key) || 'null') || { A: [], B: [], C: [] };
+  } catch {
+    return { A: [], B: [], C: [] };
+  }
+}
+
+function saveNursingDetail(userId, wardId, rowIdx, detail) {
+  const key = nursingDetailKey(userId, wardId, rowIdx);
+  localStorage.setItem(key, JSON.stringify(detail || { A: [], B: [], C: [] }));
+}
+
+function calcNursingScore(detail) {
+  const a = (detail?.A || []).length;
+  const b = (detail?.B || []).length;
+  const c = (detail?.C || []).length;
+
+  const total =
+    a * (NURSING_WEIGHTS.A || 0) +
+    b * (NURSING_WEIGHTS.B || 0) +
+    c * (NURSING_WEIGHTS.C || 0);
+
+  return { total, a, b, c };
+}
+
+async function applyNursingSelection(rowIdx, detail) {
+  const session = loadSession();
+  if (!session?.userId || !currentWard) return;
+  if (!sheetAllRows[rowIdx]) return;
+
+  saveNursingDetail(session.userId, currentWard.id, rowIdx, detail);
+
+  const { total, a, b, c } = calcNursingScore(detail);
+  sheetAllRows[rowIdx][COL_NURSING] = `${total}（A${a}/B${b}/C${c}）`;
+
+  await setSheetRows(session.userId, currentWard.id, sheetAllRows);
+  setSheetMsg('保存しました。');
+
+  applySearchAndSort();
+}
+
+function showNursingSelector(el) {
+  document.querySelectorAll('.nursing-selector').forEach(s => s.remove());
+
+  const session = loadSession();
+  if (!session?.userId || !currentWard) return;
+
+  const rowIdx = Number(el.getAttribute('data-idx'));
+  if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
+
+  const current = loadNursingDetail(session.userId, currentWard.id, rowIdx);
+
+  const selector = document.createElement('div');
+  selector.className = 'nursing-selector';
+
+  function renderCategory(cat) {
+    const items = NURSING_ITEMS[cat] || [];
+    const selected = new Set(current[cat] || []);
+    return `
+      <div class="nursing-cat">
+        <div class="nursing-cat-title">${cat}</div>
+        ${items.map(it => `
+          <label class="nursing-item">
+            <input type="checkbox" data-cat="${cat}" data-id="${it.id}" ${selected.has(it.id) ? 'checked' : ''} />
+            <span>${escapeHtml(it.label)}</span>
+          </label>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  selector.innerHTML = `
+    <div class="nursing-head">
+      <div class="nursing-title">看護必要度（A/B/C選択）</div>
+      <button class="nursing-close" type="button">✕</button>
+    </div>
+    <div class="nursing-body">
+      ${renderCategory('A')}
+      ${renderCategory('B')}
+      ${renderCategory('C')}
+    </div>
+    <div class="nursing-actions">
+      <button class="btn btn-outline nursing-clear" type="button">クリア</button>
+      <button class="btn btn-primary nursing-save" type="button">反映</button>
+    </div>
+  `;
+
+  const rect = el.getBoundingClientRect();
+  selector.style.position = 'absolute';
+  selector.style.left = `${rect.left + window.scrollX}px`;
+  selector.style.top = `${rect.bottom + window.scrollY + 4}px`;
+
+  document.body.appendChild(selector);
+
+  selector.querySelector('.nursing-close')?.addEventListener('click', () => selector.remove());
+
+  selector.querySelector('.nursing-clear')?.addEventListener('click', async () => {
+    await applyNursingSelection(rowIdx, { A: [], B: [], C: [] });
+    selector.remove();
+  });
+
+  selector.querySelector('.nursing-save')?.addEventListener('click', async () => {
+    const next = { A: [], B: [], C: [] };
+    selector.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      const cat = cb.getAttribute('data-cat');
+      const id = cb.getAttribute('data-id');
+      if (!cat || !id) return;
+      if (cb.checked) next[cat].push(id);
+    });
+    await applyNursingSelection(rowIdx, next);
+    selector.remove();
+  });
+
   setTimeout(() => {
     document.addEventListener('click', function closeSelector(e) {
       if (!selector.contains(e.target)) {
@@ -1028,10 +1205,6 @@ async function clearSheet() {
   updateOccupancyUI();
 }
 
-
-// ===== 退院調整機能 ===== 
-const COL_EST_DISCHARGE = 10;  // 退院見込み
-const COL_NURSING = 9;         // 看護必要度
 
 /**
  * シートデータをWardOccupancyIdealizer用の患者配列に変換

@@ -610,4 +610,83 @@ h1{ font-size:18px; margin:0; }
   border-color: rgba(239,68,68,35);
   color: rgba(185,28,28,100);
 }
+/* ===== 看護必要度 選択UI ===== */
+.nursing-cell{
+  cursor:pointer;
+  user-select:none;
+}
+.nursing-cell:hover{
+  background: var(--primary-weak);
+  border-radius: 6px;
+}
+
+.nursing-selector{
+  z-index: 9999;
+  min-width: 360px;
+  max-width: 520px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(0,0,0,12);
+}
+
+.nursing-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.nursing-title{
+  font-weight:800;
+  font-size:13px;
+}
+
+.nursing-close{
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:10px;
+  padding:6px 10px;
+  cursor:pointer;
+}
+
+.nursing-body{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap:10px;
+  max-height: 320px;
+  overflow:auto;
+  padding-right:4px;
+}
+
+.nursing-cat{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px;
+}
+
+.nursing-cat-title{
+  font-weight:800;
+  margin:0 0 8px;
+  font-size:12px;
+  color: rgba(0,0,0,75);
+}
+
+.nursing-item{
+  display:flex;
+  gap:8px;
+  align-items:flex-start;
+  font-size:12px;
+  margin:6px 0;
+  cursor:pointer;
+}
+
+.nursing-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:10px;
+}
 
