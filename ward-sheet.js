@@ -104,6 +104,110 @@ function updateOccupancyUI() {
   pctEl.textContent = `${Math.round(percent)}%`;
 }
 
+function calcAvgLosFromRows(rows) {
+  const items = (rows || []).filter(r => String(r?.[COL_PATIENT_ID] ?? '').trim());
+  const n = items.length;
+  if (n === 0) return { n: 0, avg: null };
+
+  let sum = 0;
+  let cnt = 0;
+  items.forEach(r => {
+    const v = Number(String(r?.[COL_ADMIT_DAYS] ?? '').trim());
+    if (Number.isFinite(v) && v > 0) { sum += v; cnt += 1; }
+  });
+
+  if (cnt === 0) return { n, avg: null };
+  return { n, avg: sum / cnt };
+}
+
+function parseNursingCell(val) {
+  const s = String(val ?? '').trim();
+  if (!s) return null;
+
+  const mTotal = s.match(/^(\d+)/);
+  const total = mTotal ? Number(mTotal[1]) : NaN;
+
+  const mAbc = s.match(/A(\d+)\s*\/\s*B(\d+)\s*\/\s*C(\d+)/);
+  const a = mAbc ? Number(mAbc[1]) : NaN;
+  const b = mAbc ? Number(mAbc[2]) : NaN;
+  const c = mAbc ? Number(mAbc[3]) : NaN;
+
+  if (!Number.isFinite(total)) return null;
+  return {
+    total,
+    a: Number.isFinite(a) ? a : null,
+    b: Number.isFinite(b) ? b : null,
+    c: Number.isFinite(c) ? c : null,
+  };
+}
+
+function calcAvgNursingFromRows(rows) {
+  const items = (rows || []).filter(r => String(r?.[COL_PATIENT_ID] ?? '').trim());
+  const n = items.length;
+  if (n === 0) return { n: 0, avgTotal: null, avgA: null, avgB: null, avgC: null };
+
+  let sumT = 0, cntT = 0;
+  let sumA = 0, cntA = 0;
+  let sumB = 0, cntB = 0;
+  let sumC = 0, cntC = 0;
+
+  items.forEach(r => {
+    const parsed = parseNursingCell(r?.[COL_NURSING]);
+    if (!parsed) return;
+
+    sumT += parsed.total; cntT += 1;
+
+    if (parsed.a !== null) { sumA += parsed.a; cntA += 1; }
+    if (parsed.b !== null) { sumB += parsed.b; cntB += 1; }
+    if (parsed.c !== null) { sumC += parsed.c; cntC += 1; }
+  });
+
+  return {
+    n,
+    avgTotal: cntT ? (sumT / cntT) : null,
+    avgA: cntA ? (sumA / cntA) : null,
+    avgB: cntB ? (sumB / cntB) : null,
+    avgC: cntC ? (sumC / cntC) : null,
+  };
+}
+
+function updateLosUI() {
+  const nEl = document.getElementById('losInpatients');
+  const avgEl = document.getElementById('losAvg');
+  if (!nEl || !avgEl) return;
+
+  const { n, avg } = calcAvgLosFromRows(sheetAllRows);
+  nEl.textContent = `${n}名`;
+
+  if (avg === null) {
+    avgEl.textContent = '-日';
+  } else {
+    avgEl.textContent = `${avg.toFixed(1)}日`;
+  }
+}
+
+function updateNursingUI() {
+  const avgEl = document.getElementById('nursingAvg');
+  const abcEl = document.getElementById('nursingAvgAbc');
+  if (!avgEl || !abcEl) return;
+
+  const { avgTotal, avgA, avgB, avgC } = calcAvgNursingFromRows(sheetAllRows);
+
+  avgEl.textContent = (avgTotal === null) ? '-' : avgTotal.toFixed(1);
+
+  const aTxt = (avgA === null) ? '-' : avgA.toFixed(1);
+  const bTxt = (avgB === null) ? '-' : avgB.toFixed(1);
+  const cTxt = (avgC === null) ? '-' : avgC.toFixed(1);
+  abcEl.textContent = `A${aTxt}/B${bTxt}/C${cTxt}`;
+}
+
+function updateKpiUI() {
+  updateLosUI();
+  updateNursingUI();
+  updateOccupancyUI();
+}
+
+
 // ===== 病棟管理UI =====
 function updateWardCountBadge(userId) {
   if (!wardCountLabel) return;
@@ -251,8 +355,9 @@ async function openWardSheet(ward) {
   wardView?.classList.add('hidden');
   sheetView?.classList.remove('hidden');
 
-  applySearchAndSort();
-  updateOccupancyUI();
+applySearchAndSort();
+updateKpiUI();
+
 }
 
 function backToWards() {
@@ -383,16 +488,34 @@ function renderSheetTable(items) {
         const rowIdx = Number(el.getAttribute('data-idx'));
         const master = window.DPC_MASTER;
 
-        // 患者ID → 入院日自動設定
-        if (c === COL_PATIENT_ID) {
-          const pid = (el.textContent ?? '').trim();
-          if (pid) {
-            const admitEl = sheetTable.querySelector(`.cell[data-idx="${rowIdx}"][data-c="${COL_ADMIT_DATE}"]`);
-            if (admitEl && (admitEl.textContent ?? '').trim() === '') {
-              admitEl.textContent = normalizeDateSlash(todayJSTIsoDate());
-            }
-          }
-        }
+// 患者ID → 入院日自動設定（date-input対応）
+if (c === COL_PATIENT_ID) {
+  const pid = (el.textContent ?? '').trim();
+  if (pid) {
+    const admitInp = sheetTable.querySelector(
+      `input.date-input[data-idx="${rowIdx}"][data-c="${COL_ADMIT_DATE}"]`
+    );
+
+    const hasIso = (admitInp?.value || '').trim();
+    if (admitInp && hasIso === '') {
+      const todayIso = todayJSTIsoDate();           // YYYY-MM-DD
+      const todaySlash = normalizeDateSlash(todayIso); // YYYY/MM/DD
+
+      admitInp.value = todayIso;
+
+      if (Number.isFinite(rowIdx) && rowIdx >= 0 && sheetAllRows[rowIdx]) {
+        sheetAllRows[rowIdx][COL_ADMIT_DATE] = todaySlash;
+
+        const days = calcAdmitDays(todaySlash);
+        sheetAllRows[rowIdx][COL_ADMIT_DAYS] = days;
+
+        const daysEl = sheetTable.querySelector(`.cell[data-idx="${rowIdx}"][data-c="${COL_ADMIT_DAYS}"]`);
+        if (daysEl) daysEl.textContent = days;
+      }
+    }
+  }
+}
+
 
         // 入院日 → 入院日数
         if (c === COL_ADMIT_DATE) {
@@ -488,7 +611,7 @@ function renderSheetTable(items) {
         }
 
         setSheetMsg('保存しました。');
-        updateOccupancyUI();
+        updateKpiUI();
         applySearchAndSort();
       } catch (e) {
         console.warn(e);
@@ -535,23 +658,46 @@ async function persistSheetFromDom() {
   if (!session?.userId || !currentWard) return;
 
   const rowEls = Array.from(sheetTable.querySelectorAll('tbody tr'));
+
   rowEls.forEach((tr) => {
     const idx = Number(tr.getAttribute('data-idx'));
     if (!Number.isFinite(idx) || idx < 0) return;
 
-    const cells = Array.from(tr.querySelectorAll('.cell'));
-    const row = cells.map(div => (div.textContent ?? '').trimEnd());
+    if (!sheetAllRows[idx]) {
+      sheetAllRows[idx] = Array.from({ length: SHEET_COLUMNS.length }, () => '');
+    }
 
-    while (row.length < SHEET_COLUMNS.length) row.push('');
-    if (row.length > SHEET_COLUMNS.length) row.length = SHEET_COLUMNS.length;
+    const row = Array.from({ length: SHEET_COLUMNS.length }, () => '');
+
+    for (let c = 0; c < SHEET_COLUMNS.length; c++) {
+      if (c === COL_ADMIT_DATE || c === COL_EST_DISCHARGE) {
+        const inp = tr.querySelector(`input.date-input[data-c="${c}"]`);
+        const iso = (inp?.value || '').trim();
+        row[c] = iso ? normalizeDateSlash(iso) : '';
+      } else {
+        const div = tr.querySelector(`.cell[data-c="${c}"]`);
+        row[c] = (div?.textContent ?? '').trimEnd();
+      }
+    }
+
+    // 入院日数は入院日から再計算（整合性担保）
+    if (row[COL_ADMIT_DATE]) {
+      row[COL_ADMIT_DAYS] = calcAdmitDays(row[COL_ADMIT_DATE]);
+      const daysEl = tr.querySelector(`.cell[data-c="${COL_ADMIT_DAYS}"]`);
+      if (daysEl) daysEl.textContent = row[COL_ADMIT_DAYS];
+    }
 
     sheetAllRows[idx] = row;
   });
 
   await setSheetRows(session.userId, currentWard.id, sheetAllRows);
   setSheetMsg('保存しました。');
-  updateOccupancyUI();
+
+  // KPIも含めて更新
+  updateKpiUI();
 }
+
+
 
 // ===== 病床数変更 =====
 async function applyBedCount(count) {
@@ -578,7 +724,7 @@ async function applyBedCount(count) {
 
   setSheetMsg(`病床数を ${n} 床に設定しました。`);
   applySearchAndSort();
-  updateOccupancyUI();
+  updateKpiUI();
 }
 
 // ===== クリア =====
@@ -591,7 +737,7 @@ async function clearSheet() {
 
   setSheetMsg('クリアしました。');
   applySearchAndSort();
-  updateOccupancyUI();
+  updateKpiUI();
 }
 
 // ===== Public API =====

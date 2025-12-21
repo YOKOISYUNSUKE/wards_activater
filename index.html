@@ -105,24 +105,45 @@
 </label>
     <button id="btnDischargeOptimize" class="btn btn-primary" type="button">退院調整</button>
   </div>
-  <div class="sheet-head">
-    <button id="btnBackToWards" class="btn btn-ghost" type="button">← 病棟選択へ</button>
-    <div>
-      <h2 class="card-title" style="margin:0;">病棟シート</h2>
-      <p class="muted" style="margin:6px 0 0;">
-        対象：<span id="sheetWardName"></span>
-      </p>
-    </div>
-
-    <div class="occ-box" aria-label="稼働率">
-      <p class="occ-title">稼働率</p>
-      <div class="occ-row">
-        <span id="occFraction" class="occ-fraction">0/0</span>
-        <span id="occPercent" class="occ-percent">0%</span>
-      </div>
-      <p class="occ-sub">入院人数/病床数</p>
-    </div>
+<div class="sheet-head">
+  <button id="btnBackToWards" class="btn btn-ghost">← 病棟選択へ</button>
+  <div>
+    <h2 class="card-title" style="margin:0;">病棟シート</h2>
+    <p class="muted" style="margin:6px 0 0;">
+      対象：<span id="sheetWardName"></span>
+    </p>
   </div>
+</div>
+
+<!-- KPI 横並び行（新設） -->
+<div class="kpi-row-bar" aria-label="病棟KPI">
+  <div class="kpi-box">
+    <p class="kpi-title">平均在院日数</p>
+    <div class="kpi-row">
+      <span id="losInpatients" class="kpi-subnum">-名</span>
+      <span id="losAvg" class="kpi-num">-日</span>
+    </div>
+    <p class="kpi-sub">入院患者のみ</p>
+  </div>
+
+  <div class="kpi-box">
+    <p class="kpi-title">看護必要度</p>
+    <div class="kpi-row">
+      <span id="nursingAvgAbc" class="kpi-subnum">A-/B-/C-</span>
+      <span id="nursingAvg" class="kpi-num">-</span>
+    </div>
+    <p class="kpi-sub">合計点平均</p>
+  </div>
+
+  <div class="kpi-box">
+    <p class="kpi-title">稼働率</p>
+    <div class="kpi-row">
+      <span id="occFraction" class="kpi-subnum">0/0</span>
+      <span id="occPercent" class="kpi-num">0%</span>
+    </div>
+    <p class="kpi-sub">入院人数/病床数</p>
+  </div>
+</div>
 
 
   <div class="divider"></div>
