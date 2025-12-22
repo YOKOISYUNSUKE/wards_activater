@@ -64,6 +64,15 @@ const btnDischargeOptimize = document.getElementById('btnDischargeOptimize');
 const sheetMsg = document.getElementById('sheetMsg');
 const sheetSearch = document.getElementById('sheetSearch');
 
+// 病院全体KPI（病棟選択画面）
+const hospitalLosInpatients = document.getElementById('hospitalLosInpatients');
+const hospitalLosAvg = document.getElementById('hospitalLosAvg');
+const hospitalNursingAvgAbc = document.getElementById('hospitalNursingAvgAbc');
+const hospitalNursingAvg = document.getElementById('hospitalNursingAvg');
+const hospitalOccFraction = document.getElementById('hospitalOccFraction');
+const hospitalOccPercent = document.getElementById('hospitalOccPercent');
+
+
 // ===== State =====
 let currentWard = null;
 let sheetAllRows = [];
@@ -207,6 +216,94 @@ function updateKpiUI() {
   updateOccupancyUI();
 }
 
+async function computeHospitalKpi(userId) {
+  const wards = getWardsForUser(userId);
+
+  let bedCount = 0;
+  let inpatients = 0;
+
+  let losSum = 0;
+  let losCnt = 0;
+
+  let nSumT = 0, nCntT = 0;
+  let nSumA = 0, nCntA = 0;
+  let nSumB = 0, nCntB = 0;
+  let nSumC = 0, nCntC = 0;
+
+  for (const w of wards) {
+    const rows = await getSheetRows(userId, w.id);
+    bedCount += Array.isArray(rows) ? rows.length : 0;
+
+    (rows || []).forEach(row => {
+      const pid = String(row?.[COL_PATIENT_ID] ?? '').trim();
+      if (!pid) return;
+
+      inpatients++;
+
+      const admitDate = String(row?.[COL_ADMIT_DATE] ?? '').trim();
+      const los = Number(calcAdmitDays(admitDate));
+      if (Number.isFinite(los) && los > 0) {
+        losSum += los;
+        losCnt++;
+      }
+
+      const parsed = parseNursingCell(row?.[COL_NURSING]);
+      if (!parsed) return;
+
+      nSumT += parsed.total; nCntT++;
+      if (parsed.a !== null) { nSumA += parsed.a; nCntA++; }
+      if (parsed.b !== null) { nSumB += parsed.b; nCntB++; }
+      if (parsed.c !== null) { nSumC += parsed.c; nCntC++; }
+    });
+  }
+
+  return {
+    bedCount,
+    inpatients,
+    occPercent: bedCount ? (inpatients / bedCount) * 100 : 0,
+    losAvg: losCnt ? losSum / losCnt : null,
+    nursingAvgTotal: nCntT ? nSumT / nCntT : null,
+    nursingAvgA: nCntA ? nSumA / nCntA : null,
+    nursingAvgB: nCntB ? nSumB / nCntB : null,
+    nursingAvgC: nCntC ? nSumC / nCntC : null,
+  };
+}
+function setHospitalKpiUiUnknown() {
+  if (hospitalLosInpatients) hospitalLosInpatients.textContent = '-名';
+  if (hospitalLosAvg) hospitalLosAvg.textContent = '-日';
+  if (hospitalNursingAvgAbc) hospitalNursingAvgAbc.textContent = 'A-/B-/C-';
+  if (hospitalNursingAvg) hospitalNursingAvg.textContent = '-';
+  if (hospitalOccFraction) hospitalOccFraction.textContent = '0/0';
+  if (hospitalOccPercent) hospitalOccPercent.textContent = '0%';
+}
+
+async function updateHospitalKpiUI(userId) {
+  const hasAny = !!(hospitalLosInpatients || hospitalLosAvg || hospitalNursingAvgAbc || hospitalNursingAvg || hospitalOccFraction || hospitalOccPercent);
+  if (!hasAny) return;
+
+  try {
+    await ensureDb();
+    const k = await computeHospitalKpi(userId);
+
+    if (hospitalLosInpatients) hospitalLosInpatients.textContent = `${k.inpatients}名`;
+    if (hospitalLosAvg) hospitalLosAvg.textContent = (k.losAvg === null) ? '-日' : `${k.losAvg.toFixed(1)}日`;
+
+    if (hospitalNursingAvg) hospitalNursingAvg.textContent = (k.nursingAvgTotal === null) ? '-' : k.nursingAvgTotal.toFixed(1);
+    if (hospitalNursingAvgAbc) {
+      const aTxt = (k.nursingAvgA === null) ? '-' : k.nursingAvgA.toFixed(1);
+      const bTxt = (k.nursingAvgB === null) ? '-' : k.nursingAvgB.toFixed(1);
+      const cTxt = (k.nursingAvgC === null) ? '-' : k.nursingAvgC.toFixed(1);
+      hospitalNursingAvgAbc.textContent = `A${aTxt}/B${bTxt}/C${cTxt}`;
+    }
+
+    if (hospitalOccFraction) hospitalOccFraction.textContent = `${k.inpatients}/${k.bedCount}`;
+    if (hospitalOccPercent) hospitalOccPercent.textContent = `${Math.round(k.occPercent)}%`;
+  } catch (e) {
+    console.warn(e);
+    setHospitalKpiUiUnknown();
+  }
+}
+
 
 // ===== 病棟管理UI =====
 function updateWardCountBadge(userId) {
@@ -343,8 +440,20 @@ async function openWardSheet(ward) {
   currentWard = ward;
   setSheetMsg('読み込み中…');
 
+  try {
+    await ensureDb();
+  } catch (e) {
+    console.error(e);
+    setWardMsg(
+      'データベースの初期化に失敗しました。ブラウザのストレージ制限やプライベートモードの可能性があります。',
+      true
+    );
+    return;
+  }
+
   sheetAllRows = await getSheetRows(session.userId, ward.id);
   setSheetMsg('');
+
 
   if (sheetWardName) sheetWardName.textContent = `${ward.name}（${ward.id}）`;
   if (sheetSearch) sheetSearch.value = '';
@@ -667,13 +776,18 @@ async function persistSheetFromDom() {
       sheetAllRows[idx] = Array.from({ length: SHEET_COLUMNS.length }, () => '');
     }
 
-    const row = Array.from({ length: SHEET_COLUMNS.length }, () => '');
+const row = Array.from({ length: SHEET_COLUMNS.length }, () => '');
 
     for (let c = 0; c < SHEET_COLUMNS.length; c++) {
       if (c === COL_ADMIT_DATE || c === COL_EST_DISCHARGE) {
         const inp = tr.querySelector(`input.date-input[data-c="${c}"]`);
         const iso = (inp?.value || '').trim();
         row[c] = iso ? normalizeDateSlash(iso) : '';
+      } else if (c === COL_BED_NO) {
+        // ★ ベッドNo列は.bed-no-cellから読み取る
+        const bedCell = tr.querySelector(`.bed-no-cell[data-c="${c}"]`);
+        const rawBedNo = bedCell?.getAttribute('data-raw') || '';
+        row[c] = rawBedNo;
       } else {
         const div = tr.querySelector(`.cell[data-c="${c}"]`);
         row[c] = (div?.textContent ?? '').trimEnd();
@@ -743,6 +857,9 @@ async function clearSheet() {
 // ===== Public API =====
 function render(userId) {
   renderWardButtons(userId);
+
+  updateHospitalKpiUI(userId)
+    .catch(() => setHospitalKpiUiUnknown());
 }
 
 function reset() {

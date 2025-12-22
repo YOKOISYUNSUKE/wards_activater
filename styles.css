@@ -384,6 +384,20 @@ h1{ font-size:18px; margin:0; }
   background: rgba(255,255,255,.95) !important;
 }
 
+/* ===== KPI 横並び（病棟KPI / 病院全体KPI） ===== */
+.kpi-row-bar{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  align-items:stretch;
+  margin: 10px 0 6px;
+}
+
+.kpi-row-bar .kpi-box{
+  flex: 1 1 220px;
+  min-width: 220px;
+}
+
 /* ===== KPI Stack（平均在院日数 / 看護必要度 / 稼働率） ===== */
 .kpi-stack{
   margin-left:auto;

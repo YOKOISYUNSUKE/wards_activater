@@ -55,28 +55,56 @@
 <section id="wardView" class="card hidden">
   <h2 class="card-title">病棟を選択</h2>
 
-  <p class="muted">
-    ログイン中：<span id="currentUser"></span><br>
-    本日（日本時間）：<span id="todayJst"></span>
-  </p>
+<p class="muted">
+  ログイン中：<span id="currentUser"></span><br>
+  本日（日本時間）：<span id="todayJst"></span>
+</p>
 
+<h3 class="sheet-subtitle" style="margin-top:10px;">病院全体KPI（全病棟合算）</h3>
 
-  <!-- 病棟の追加（最大20） -->
+<div class="kpi-row-bar" aria-label="病院全体KPI">
+  <div class="kpi-box">
+    <p class="kpi-title">平均在院日数</p>
+    <div class="kpi-row">
+      <span id="hospitalLosInpatients" class="kpi-subnum">-名</span>
+      <span id="hospitalLosAvg" class="kpi-num">-日</span>
+    </div>
+    <p class="kpi-sub">入院患者のみ</p>
+  </div>
+
+  <div class="kpi-box">
+    <p class="kpi-title">看護必要度</p>
+    <div class="kpi-row">
+      <span id="hospitalNursingAvgAbc" class="kpi-subnum">A-/B-/C-</span>
+      <span id="hospitalNursingAvg" class="kpi-num">-</span>
+    </div>
+    <p class="kpi-sub">合計点平均</p>
+  </div>
+
+  <div class="kpi-box">
+    <p class="kpi-title">稼働率</p>
+    <div class="kpi-row">
+      <span id="hospitalOccFraction" class="kpi-subnum">0/0</span>
+      <span id="hospitalOccPercent" class="kpi-num">0%</span>
+    </div>
+    <p class="kpi-sub">入院人数/病床数</p>
+  </div>
+</div>
+
   <div class="wardcount">
     <div class="wardcount-head">
       <div>
         <p class="wardcount-title">病棟</p>
-        <p class="wardcount-sub">「病棟を追加」で増やせます（最大20／ユーザーごとに保存）</p>
+        <p class="wardcount-sub">最大20</p>
       </div>
-      <div class="wardcount-badge">
-        <span id="wardCountLabel">0</span>
-      </div>
+      <div id="wardCountLabel" class="wardcount-badge">-</div>
     </div>
 
     <div class="wardcount-actions">
       <button id="btnAddWard" class="btn btn-outline" type="button">＋ 病棟を追加</button>
     </div>
   </div>
+
 
 
   <div class="divider"></div>
@@ -157,7 +185,7 @@
   </div>
 
   <div class="sheet-toolbar-right">
-    <input id="sheetSearch" class="input" type="search" placeholder="検索（患者ID/病名/DPC/退院見込み/メモ…）" />
+    <input id="sheetSearch" class="input" type="search" placeholder="検索（患者ID/病名/DPC/退院予定日/メモ…）" />
   </div>
 </div>
 
