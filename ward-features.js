@@ -11,6 +11,7 @@ const {
   SHEET_COLUMNS,
   COL_BED_NO,
   COL_PATIENT_ID,
+  COL_DISCHARGE_OK,
   COL_DPC,
   COL_ADMIT_DATE,
   COL_ADMIT_DAYS,
@@ -374,15 +375,17 @@ function showNursingSelector(el, sheetAllRows, currentWard, callback) {
 }
 
 // ===== 退院調整 =====
-function convertRowsToPatients(rows, wardName) {
+function convertRowsToPatients(rows, wardName, checkedOnly = false) {
   return (rows || [])
     .map((row, idx) => {
       const patientId = String(row[COL_PATIENT_ID] ?? '').trim();
       const dpcCode = String(row[COL_DPC] ?? '').trim();
       const admitDate = String(row[COL_ADMIT_DATE] ?? '').trim();
       const estDischarge = String(row[COL_EST_DISCHARGE] ?? '').trim();
+      const dischargeOk = String(row[COL_DISCHARGE_OK] ?? '').trim();
 
-      if (!patientId || !estDischarge) return null;
+      if (!patientId) return null;
+      if (checkedOnly && dischargeOk !== '1') return null;
 
       return {
         patient_key: patientId,
@@ -391,7 +394,7 @@ function convertRowsToPatients(rows, wardName) {
         adm_date: admitDate,
         los_today: String(row[COL_ADMIT_DAYS] ?? '').trim(),
         nursing_acuity: String(row[COL_NURSING] ?? '').trim(),
-        est_discharge_date: estDischarge,
+        est_discharge_date: estDischarge || admitDate,
         discharge_ready_flag: '',
         notes_flag: '',
         _rowIdx: idx,
@@ -415,17 +418,18 @@ function buildDpcMasterMap() {
   return map;
 }
 
-function runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg) {
+// ward-features.js 行 235-255 付近
+function runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg, onDateSelect) {
   const WOI = window.WardOccupancyIdealizer;
   if (!WOI) {
     setSheetMsg('退院調整モジュールが読み込まれていません。', true);
     return;
   }
 
-  const patients = convertRowsToPatients(sheetAllRows, currentWard?.name);
+  const patients = convertRowsToPatients(sheetAllRows, currentWard?.name, true);
 
   if (patients.length === 0) {
-    setSheetMsg('退院見込み日が入力されている患者がいません。', true);
+    setSheetMsg('退院許可にチェックが入っている患者がいません。', true);
     return;
   }
 
@@ -444,8 +448,9 @@ function runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg) {
     }
   };
 
+// ward-features.js 行 265-275 付近
   try {
-    const recommendations = WOI.buildRecommendations(patients, {
+    const rawRecs = WOI.buildRecommendations(patients, {
       dpcMaster,
       constraints,
       asOfDate,
@@ -453,14 +458,16 @@ function runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg) {
       candidateRangeDays: 7,
     });
 
-    showDischargeRecommendations(recommendations, setSheetMsg);
+    const recommendations = rawRecs.map((r, i) => ({ ...r, _rowIdx: patients[i]._rowIdx }));
+
+    showDischargeRecommendations(recommendations, setSheetMsg, onDateSelect);
   } catch (e) {
     console.error('退院調整エラー:', e);
     setSheetMsg('退院調整の計算中にエラーが発生しました。', true);
   }
 }
 
-function showDischargeRecommendations(recommendations, setSheetMsg) {
+function showDischargeRecommendations(recommendations, setSheetMsg, onDateSelect) {
   document.querySelectorAll('.discharge-modal-overlay').forEach(m => m.remove());
 
   const overlay = document.createElement('div');
@@ -490,7 +497,7 @@ function showDischargeRecommendations(recommendations, setSheetMsg) {
       const topList = (rec.top || []).map((c, idx) => {
         const rank = idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉';
         return `
-          <div class="discharge-candidate ${idx === 0 ? 'best' : ''}">
+          <div class="discharge-candidate clickable ${idx === 0 ? 'best' : ''}" data-row-idx="${rec._rowIdx}" data-date="${c.date_iso}">
             <span class="rank">${rank}</span>
             <span class="date">${c.date_iso}（${c.weekday}）</span>
             <span class="score">スコア: ${c.score_total}</span>
@@ -533,6 +540,17 @@ function showDischargeRecommendations(recommendations, setSheetMsg) {
   });
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
+  });
+
+  overlay.querySelectorAll('.discharge-candidate.clickable').forEach(el => {
+    el.addEventListener('click', () => {
+      const rowIdx = Number(el.getAttribute('data-row-idx'));
+      const dateIso = el.getAttribute('data-date');
+      if (onDateSelect && Number.isFinite(rowIdx) && dateIso) {
+        onDateSelect(rowIdx, dateIso);
+        overlay.remove();
+      }
+    });
   });
 
   setSheetMsg(`${recommendations.length}名の退院候補日を算出しました。`);

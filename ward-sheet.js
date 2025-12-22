@@ -11,6 +11,7 @@ const {
   SHEET_COLUMNS,
   COL_BED_NO,
   COL_PATIENT_ID,
+  COL_DISCHARGE_OK,
   COL_DPC,
   COL_DPC_I,
   COL_DPC_II,
@@ -46,6 +47,82 @@ const {
   runDischargeOptimize,
 } = window.WardFeatures;
 
+// ===== 固定 横スクロールバー（画面下 常時表示） =====
+let fixedHScroll = null;
+let fixedHScrollInner = null;
+let fixedHScrollReady = false;
+let syncingHScroll = false;
+
+function ensureFixedHScroll() {
+  if (fixedHScrollReady) return;
+
+  fixedHScroll = document.createElement('div');
+  fixedHScroll.className = 'fixed-hscroll hidden';
+
+  fixedHScrollInner = document.createElement('div');
+  fixedHScrollInner.className = 'fixed-hscroll-inner';
+  fixedHScroll.appendChild(fixedHScrollInner);
+
+  document.body.appendChild(fixedHScroll);
+
+  // fixedHScroll -> tableWrap
+  fixedHScroll.addEventListener('scroll', () => {
+    if (syncingHScroll) return;
+    const wrap = document.querySelector('#sheetView .table-wrap');
+    if (!wrap) return;
+    syncingHScroll = true;
+    wrap.scrollLeft = fixedHScroll.scrollLeft;
+    syncingHScroll = false;
+  });
+
+  fixedHScrollReady = true;
+}
+
+function updateFixedHScrollMetrics() {
+  if (!fixedHScrollReady) return;
+
+  const wrap = document.querySelector('#sheetView .table-wrap');
+  const table = document.getElementById('sheetTable');
+  if (!wrap || !table) return;
+
+  // テーブルの実幅を“ダミー要素”に反映（これがスクロール幅になる）
+  const w = Math.max(table.scrollWidth, wrap.clientWidth);
+  fixedHScrollInner.style.width = `${w}px`;
+
+  // wrap側の現在位置を固定バーに反映
+  fixedHScroll.scrollLeft = wrap.scrollLeft;
+}
+
+function showFixedHScroll() {
+  ensureFixedHScroll();
+
+  fixedHScroll.classList.remove('hidden');
+  document.body.classList.add('has-hscroll');
+
+  const wrap = document.querySelector('#sheetView .table-wrap');
+  if (wrap) {
+    // tableWrap -> fixedHScroll
+    wrap.addEventListener('scroll', () => {
+      if (syncingHScroll) return;
+      syncingHScroll = true;
+      fixedHScroll.scrollLeft = wrap.scrollLeft;
+      syncingHScroll = false;
+    });
+  }
+
+  updateFixedHScrollMetrics();
+
+  // リサイズで幅が変わるので追従
+  window.addEventListener('resize', updateFixedHScrollMetrics);
+}
+
+function hideFixedHScroll() {
+  if (!fixedHScrollReady) return;
+  fixedHScroll.classList.add('hidden');
+  document.body.classList.remove('has-hscroll');
+  window.removeEventListener('resize', updateFixedHScrollMetrics);
+}
+
 // ===== DOM =====
 const wardView = document.getElementById('wardView');
 const sheetView = document.getElementById('sheetView');
@@ -54,7 +131,6 @@ const currentUser = document.getElementById('currentUser');
 const wardCountLabel = document.getElementById('wardCountLabel');
 const btnAddWard = document.getElementById('btnAddWard');
 const wardMsg = document.getElementById('wardMsg');
-
 const btnBackToWards = document.getElementById('btnBackToWards');
 const sheetWardName = document.getElementById('sheetWardName');
 const sheetTable = document.getElementById('sheetTable');
@@ -464,6 +540,9 @@ async function openWardSheet(ward) {
   wardView?.classList.add('hidden');
   sheetView?.classList.remove('hidden');
 
+  showFixedHScroll();
+  updateFixedHScrollMetrics();
+
 applySearchAndSort();
 updateKpiUI();
 
@@ -474,6 +553,7 @@ function backToWards() {
   setSheetMsg('');
   sheetView?.classList.add('hidden');
   wardView?.classList.remove('hidden');
+  hideFixedHScroll();
 }
 
 // ===== 検索・ソート =====
@@ -543,17 +623,27 @@ function renderSheetTable(items) {
                 </td>
               `;
             }
-            if (c === COL_NURSING) {
-              const display = String(cell || '').trim();
-              const shown = display || '（クリックして選択）';
+            if (c === COL_DISCHARGE_OK) {
+              const checked = String(cell || '').trim() === '1';
               return `
-                <td>
-                  <div class="cell nursing-cell" data-idx="${it.idx}" data-c="${c}" title="クリックしてA/B/Cを選択">
-                    ${escapeHtml(shown)}
-                  </div>
+                <td style="text-align:center;">
+                  <input type="checkbox" class="discharge-ok-check" data-idx="${it.idx}" data-c="${c}" ${checked ? 'checked' : ''} />
                 </td>
               `;
             }
+if (c === COL_NURSING) {
+  const display = String(cell || '').trim();
+  const shown = display || '（クリック）';
+  return `
+    <td>
+      <div class="cell nursing-cell" data-idx="${it.idx}" data-c="${c}" title="クリックしてA/B/Cを選択">
+        ${escapeHtml(shown)}
+      </div>
+    </td>
+  `;
+}
+
+
             if (c === COL_ADMIT_DATE || c === COL_EST_DISCHARGE) {
               const isoVal = normalizeDateIso(cell);
               return `
@@ -574,8 +664,10 @@ function renderSheetTable(items) {
   `;
 
   sheetTable.innerHTML = thead + tbody;
-
-  // ソートイベント
+ 
+  updateFixedHScrollMetrics();
+ 
+ // ソートイベント
   sheetTable.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
       const col = Number(th.getAttribute('data-col'));
@@ -759,6 +851,23 @@ if (c === COL_PATIENT_ID) {
       });
     });
   });
+
+  // 退院許可チェックボックス
+  sheetTable.querySelectorAll('.discharge-ok-check').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const rowIdx = Number(cb.getAttribute('data-idx'));
+      if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
+      if (!sheetAllRows[rowIdx]) return;
+
+      sheetAllRows[rowIdx][COL_DISCHARGE_OK] = cb.checked ? '1' : '';
+
+      const session = loadSession();
+      if (session?.userId && currentWard) {
+        await setSheetRows(session.userId, currentWard.id, sheetAllRows);
+      }
+      setSheetMsg('保存しました。');
+    });
+  });
 }
 
 // ===== シート保存 =====
@@ -884,9 +993,23 @@ btnAddWard?.addEventListener('click', () => {
 
 btnBackToWards?.addEventListener('click', () => backToWards());
 btnClearSheet?.addEventListener('click', () => clearSheet());
-
 btnDischargeOptimize?.addEventListener('click', () => {
-  runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg);
+  runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg, async (rowIdx, dateIso) => {
+    if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
+    if (!sheetAllRows[rowIdx]) return;
+
+    const slash = normalizeDateSlash(dateIso);
+    sheetAllRows[rowIdx][COL_EST_DISCHARGE] = slash;
+
+    const session = loadSession();
+    if (session?.userId && currentWard) {
+      await setSheetRows(session.userId, currentWard.id, sheetAllRows);
+    }
+
+    setSheetMsg(`行${rowIdx + 1}の退院予定日を ${slash} に設定しました。`);
+    applySearchAndSort();
+    updateKpiUI();
+  });
 });
 
 inputBedCount?.addEventListener('change', () => {

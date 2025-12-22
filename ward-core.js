@@ -13,9 +13,11 @@ const KEY_WARDCOUNT = 'bm_wardcount_v1';
 const KEY_WARDS = 'bm_wards_v1';
 
 // ===== Sheet columns =====
+// ward-core.js 行 16-27 付近
 const SHEET_COLUMNS = [
   'ベッドNo',
   '患者ID',
+  '退院許可',
   '主病名',
   'DPCコード',
   '期間Ⅰ',
@@ -31,14 +33,15 @@ const SHEET_COLUMNS = [
 // 列インデックス
 const COL_BED_NO = 0;
 const COL_PATIENT_ID = 1;
-const COL_DPC = 3;
-const COL_DPC_I = 4;
-const COL_DPC_II = 5;
-const COL_DPC_III = 6;
-const COL_ADMIT_DATE = 7;
-const COL_ADMIT_DAYS = 8;
-const COL_NURSING = 9;
-const COL_EST_DISCHARGE = 10;
+const COL_DISCHARGE_OK = 2;
+const COL_DPC = 4;
+const COL_DPC_I = 5;
+const COL_DPC_II = 6;
+const COL_DPC_III = 7;
+const COL_ADMIT_DATE = 8;
+const COL_ADMIT_DAYS = 9;
+const COL_NURSING = 10;
+const COL_EST_DISCHARGE = 11;
 
 // ベッドタイプ定義
 const BED_TYPES = {
@@ -325,6 +328,7 @@ window.WardCore = {
   SHEET_COLUMNS,
   COL_BED_NO,
   COL_PATIENT_ID,
+  COL_DISCHARGE_OK,
   COL_DPC,
   COL_DPC_I,
   COL_DPC_II,

@@ -241,11 +241,20 @@ h1{ font-size:18px; margin:0; }
   scrollbar-color: #c1c1c1 #f1f1f1;
 }
 /* ===== 日付列：入院日・退院見込み ===== */
-/* 入院日（8列目）, 退院見込み（11列目） */
-.sheet-table td:nth-child(8),
+.sheet-table th:nth-child(5),
+.sheet-table td:nth-child(5),  
+.sheet-table th:nth-child(6),
+.sheet-table td:nth-child(6),  
+.sheet-table th:nth-child(7),
+.sheet-table td:nth-child(7),  
 .sheet-table th:nth-child(8),
-.sheet-table td:nth-child(11),
-.sheet-table th:nth-child(11) {
+.sheet-table td:nth-child(8),
+.sheet-table th:nth-child(9),
+.sheet-table td:nth-child(9),  
+.sheet-table th:nth-child(10),
+.sheet-table td:nth-child(10),  
+.sheet-table th:nth-child(11),
+.sheet-table td:nth-child(11) {
   text-align: center;
   white-space: nowrap;
 }
@@ -363,18 +372,18 @@ h1{ font-size:18px; margin:0; }
 /* ===== DPC 期間 色分け ===== */
 /* 列番号は 0 始まり（ベッドNo=0） */
 
-.sheet-table td:nth-child(5),
-.sheet-table th:nth-child(5) {
-  background-color: #e8f5e9;
-}
-
 .sheet-table td:nth-child(6),
 .sheet-table th:nth-child(6) {
-  background-color: #fffde7;
+  background-color: #e8f5e9;
 }
 
 .sheet-table td:nth-child(7),
 .sheet-table th:nth-child(7) {
+  background-color: #fffde7;
+}
+
+.sheet-table td:nth-child(8),
+.sheet-table th:nth-child(8) {
   background-color: #fdecea;
 }
 
@@ -758,5 +767,167 @@ h1{ font-size:18px; margin:0; }
   overflow: hidden;         /* はみ出し非表示 */
   text-overflow: ellipsis;  /* …表示 */
   max-width: 100%;
+}
+/* ===== 退院候補日モーダル ===== */
+.discharge-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 9998;
+  display: grid;
+  place-items: center;
+}
+
+.discharge-modal {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.2);
+  width: min(600px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.discharge-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.discharge-modal-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.discharge-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.discharge-modal-content {
+  padding: 14px 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.discharge-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.discharge-card-header {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.discharge-card-header .patient-id {
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.discharge-card-header .dpc-code {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+.discharge-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.discharge-candidate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f9fafb;
+  font-size: 12px;
+}
+
+.discharge-candidate.clickable {
+  cursor: pointer;
+  transition: background .15s ease;
+}
+
+.discharge-candidate.clickable:hover {
+  background: var(--primary-weak);
+}
+
+.discharge-candidate.best {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.discharge-candidate.best.clickable:hover {
+  background: #d1fae5;
+}
+
+.discharge-candidate .rank {
+  font-size: 14px;
+}
+
+.discharge-candidate .date {
+  font-weight: 700;
+}
+
+.discharge-candidate .score {
+  color: var(--muted);
+}
+
+.discharge-candidate .detail {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.discharge-rationale {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fffbeb;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #92400e;
+}
+/* ===== 固定 横スクロールバー（患者表用） ===== */
+.fixed-hscroll {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  height: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  background: rgba(255,255,255,.92);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(6px);
+
+  z-index: 9997; /* モーダル(9998)より下、通常UIより上 */
+}
+
+.fixed-hscroll.hidden {
+  display: none;
+}
+
+/* スクロール用の“幅だけ持つ”中身 */
+.fixed-hscroll .fixed-hscroll-inner {
+  height: 1px;
+}
+
+/* 固定バー分、下が隠れないように余白（sheetView表示中のみJSで付与） */
+body.has-hscroll {
+  padding-bottom: 18px;
 }
 
