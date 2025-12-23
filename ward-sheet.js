@@ -209,22 +209,90 @@ function parseNursingCell(val) {
   const s = String(val ?? '').trim();
   if (!s) return null;
 
-  const mTotal = s.match(/^(\d+)/);
-  const total = mTotal ? Number(mTotal[1]) : NaN;
-
-  const mAbc = s.match(/A(\d+)\s*\/\s*B(\d+)\s*\/\s*C(\d+)/);
-  const a = mAbc ? Number(mAbc[1]) : NaN;
-  const b = mAbc ? Number(mAbc[2]) : NaN;
-  const c = mAbc ? Number(mAbc[3]) : NaN;
-
-  if (!Number.isFinite(total)) return null;
-  return {
-    total,
-    a: Number.isFinite(a) ? a : null,
-    b: Number.isFinite(b) ? b : null,
-    c: Number.isFinite(c) ? c : null,
-  };
+  // 新: "A1/B2/C0" → total は内部で a+b+c
+  const mNew = s.match(/^A(\d+)\s*\/\s*B(\d+)\s*\/\s*C(\d+)$/);
+  if (mNew) {
+    const a = Number(mNew[1]);
+    const b = Number(mNew[2]);
+    const c = Number(mNew[3]);
+    if (![a, b, c].every(Number.isFinite)) return null;
+    return { total: a + b + c, a, b, c };
+  }
+function nursingKpiDayKey(userId, wardId, isoDate) {
+  return `bm_nursing_kpi_day_v1|${userId}|${wardId}|${isoDate}`;
 }
+
+function isNursingKpiQualified(a, b, c) {
+  const A = Number(a) || 0;
+  const B = Number(b) || 0;
+  const C = Number(c) || 0;
+
+  const cond1 = (A >= 2 && B >= 3);
+  const cond2 = (A >= 3);
+  const cond3 = (C >= 1);
+
+  return (cond1 || cond2 || cond3);
+}
+
+function recordNursingKpiForToday(userId, wardId, rows) {
+  const iso = todayJSTIsoDate(); // "YYYY-MM-DD"
+  const inpatients = (rows || []).filter(r => String(r?.[COL_PATIENT_ID] ?? '').trim());
+
+  const denom = inpatients.length;
+
+  let num = 0;
+  inpatients.forEach(r => {
+    const parsed = parseNursingCell(r?.[COL_NURSING]); // {a,b,c,total}
+    if (!parsed) return;
+    if (isNursingKpiQualified(parsed.a, parsed.b, parsed.c)) num += 1;
+  });
+
+  const key = nursingKpiDayKey(userId, wardId, iso);
+  localStorage.setItem(key, JSON.stringify({ denom, num }));
+}
+
+function listLastNDaysIso(nDays) {
+  const out = [];
+  const base = new Date(todayJSTIsoDate());
+  base.setHours(0,0,0,0);
+
+  for (let i = 0; i < nDays; i++) {
+    const d = new Date(base.getTime());
+    d.setDate(d.getDate() - i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    out.push(`${y}-${m}-${da}`);
+  }
+  return out;
+}
+
+function sumNursingKpiLastNDays(userId, wardId, nDays) {
+  const days = listLastNDaysIso(nDays);
+  let denomSum = 0;
+  let numSum = 0;
+  let availableDays = 0;
+
+  days.forEach(iso => {
+    const key = nursingKpiDayKey(userId, wardId, iso);
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    try {
+      const obj = JSON.parse(raw);
+      const d = Number(obj?.denom) || 0;
+      const n = Number(obj?.num) || 0;
+      denomSum += d;
+      numSum += n;
+      availableDays += 1;
+    } catch {}
+  });
+
+  const rate = denomSum > 0 ? (numSum / denomSum) * 100 : null;
+  return { denomSum, numSum, rate, availableDays };
+}
+
+
+
 
 function calcAvgNursingFromRows(rows) {
   const items = (rows || []).filter(r => String(r?.[COL_PATIENT_ID] ?? '').trim());
@@ -273,18 +341,33 @@ function updateLosUI() {
 
 function updateNursingUI() {
   const avgEl = document.getElementById('nursingAvg');
-  const abcEl = document.getElementById('nursingAvgAbc');
-  if (!avgEl || !abcEl) return;
+  const subEl = document.getElementById('nursingAvgAbc');
+  if (!avgEl || !subEl) return;
 
-  const { avgTotal, avgA, avgB, avgC } = calcAvgNursingFromRows(sheetAllRows);
+  const session = loadSession();
+  if (!session?.userId || !currentWard) {
+    avgEl.textContent = '-%';
+    subEl.textContent = '-/- (3ヶ月)';
+    return;
+  }
 
-  avgEl.textContent = (avgTotal === null) ? '-' : avgTotal.toFixed(1);
+  const k = sumNursingKpiLastNDays(session.userId, currentWard.id, 90);
 
-  const aTxt = (avgA === null) ? '-' : avgA.toFixed(1);
-  const bTxt = (avgB === null) ? '-' : avgB.toFixed(1);
-  const cTxt = (avgC === null) ? '-' : avgC.toFixed(1);
-  abcEl.textContent = `A${aTxt}/B${bTxt}/C${cTxt}`;
+  if (k.rate === null) {
+    avgEl.textContent = '-%';
+    subEl.textContent = '-/- (3ヶ月)';
+    return;
+  }
+
+  avgEl.textContent = `${k.rate.toFixed(1)}%`;
+  subEl.textContent = `${k.numSum}/${k.denomSum} (3ヶ月)`;
+
+  // 収集期間が短い間は注記（“3ヶ月”未満を明示）
+  if (k.availableDays < 90) {
+    subEl.textContent = `${k.numSum}/${k.denomSum} (${k.availableDays}日分)`;
+  }
 }
+
 
 function updateKpiUI() {
   updateLosUI();
@@ -301,10 +384,10 @@ async function computeHospitalKpi(userId) {
   let losSum = 0;
   let losCnt = 0;
 
-  let nSumT = 0, nCntT = 0;
-  let nSumA = 0, nCntA = 0;
-  let nSumB = 0, nCntB = 0;
-  let nSumC = 0, nCntC = 0;
+  // 新KPI（90日）
+  let nkDenom = 0;
+  let nkNum = 0;
+  let nkAvailDaysMax = 0;
 
   for (const w of wards) {
     const rows = await getSheetRows(userId, w.id);
@@ -313,7 +396,6 @@ async function computeHospitalKpi(userId) {
     (rows || []).forEach(row => {
       const pid = String(row?.[COL_PATIENT_ID] ?? '').trim();
       if (!pid) return;
-
       inpatients++;
 
       const admitDate = String(row?.[COL_ADMIT_DATE] ?? '').trim();
@@ -322,35 +404,43 @@ async function computeHospitalKpi(userId) {
         losSum += los;
         losCnt++;
       }
-
-      const parsed = parseNursingCell(row?.[COL_NURSING]);
-      if (!parsed) return;
-
-      nSumT += parsed.total; nCntT++;
-      if (parsed.a !== null) { nSumA += parsed.a; nCntA++; }
-      if (parsed.b !== null) { nSumB += parsed.b; nCntB++; }
-      if (parsed.c !== null) { nSumC += parsed.c; nCntC++; }
     });
+
+    const k = sumNursingKpiLastNDays(userId, w.id, 90);
+    nkDenom += k.denomSum;
+    nkNum += k.numSum;
+    nkAvailDaysMax = Math.max(nkAvailDaysMax, k.availableDays);
   }
+
+  const nkRate = nkDenom > 0 ? (nkNum / nkDenom) * 100 : null;
 
   return {
     bedCount,
     inpatients,
     occPercent: bedCount ? (inpatients / bedCount) * 100 : 0,
     losAvg: losCnt ? losSum / losCnt : null,
-    nursingAvgTotal: nCntT ? nSumT / nCntT : null,
-    nursingAvgA: nCntA ? nSumA / nCntA : null,
-    nursingAvgB: nCntB ? nSumB / nCntB : null,
-    nursingAvgC: nCntC ? nSumC / nCntC : null,
+
+    nursingKpiNum: nkNum,
+    nursingKpiDenom: nkDenom,
+    nursingKpiRate: nkRate,
+    nursingKpiAvailDays: nkAvailDaysMax,
   };
 }
+
+
 function setHospitalKpiUiUnknown() {
-  if (hospitalLosInpatients) hospitalLosInpatients.textContent = '-名';
-  if (hospitalLosAvg) hospitalLosAvg.textContent = '-日';
-  if (hospitalNursingAvgAbc) hospitalNursingAvgAbc.textContent = 'A-/B-/C-';
-  if (hospitalNursingAvg) hospitalNursingAvg.textContent = '-';
-  if (hospitalOccFraction) hospitalOccFraction.textContent = '0/0';
-  if (hospitalOccPercent) hospitalOccPercent.textContent = '0%';
+    if (hospitalNursingAvg) {
+      hospitalNursingAvg.textContent = (k.nursingKpiRate === null) ? '-%' : `${k.nursingKpiRate.toFixed(1)}%`;
+    }
+    if (hospitalNursingAvgAbc) {
+      if (k.nursingKpiRate === null) {
+        hospitalNursingAvgAbc.textContent = '-/- (3ヶ月)';
+      } else {
+        const label = (k.nursingKpiAvailDays < 90) ? `${k.nursingKpiAvailDays}日分` : '3ヶ月';
+        hospitalNursingAvgAbc.textContent = `${k.nursingKpiNum}/${k.nursingKpiDenom} (${label})`;
+      }
+    }
+
 }
 
 async function updateHospitalKpiUI(userId) {
@@ -528,6 +618,7 @@ async function openWardSheet(ward) {
   }
 
   sheetAllRows = await getSheetRows(session.userId, ward.id);
+  recordNursingKpiForToday(session.userId, ward.id, sheetAllRows);
   setSheetMsg('');
 
 
@@ -633,11 +724,10 @@ function renderSheetTable(items) {
             }
 if (c === COL_NURSING) {
   const display = String(cell || '').trim();
-  const shown = display || '（クリック）';
   return `
     <td>
-      <div class="cell nursing-cell" data-idx="${it.idx}" data-c="${c}" title="クリックしてA/B/Cを選択">
-        ${escapeHtml(shown)}
+      <div class="cell nursing-cell" data-idx="${it.idx}" data-c="${c}" title="クリックしてA/B/C点数を選択">
+        ${escapeHtml(display)}
       </div>
     </td>
   `;
@@ -916,8 +1006,10 @@ const row = Array.from({ length: SHEET_COLUMNS.length }, () => '');
   await setSheetRows(session.userId, currentWard.id, sheetAllRows);
   setSheetMsg('保存しました。');
 
-  // KPIも含めて更新
+  recordNursingKpiForToday(session.userId, currentWard.id, sheetAllRows);
+
   updateKpiUI();
+
 }
 
 

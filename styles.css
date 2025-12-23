@@ -767,6 +767,10 @@ h1{ font-size:18px; margin:0; }
   overflow: hidden;         /* はみ出し非表示 */
   text-overflow: ellipsis;  /* …表示 */
   max-width: 100%;
+  min-height: 18px;         /* 空セルでも高さを確保 */
+  display: block;           /* ブロック要素として高さを確実に適用 */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;          /* 等幅フォントでコンパクトに */
 }
 /* ===== 退院候補日モーダル ===== */
 .discharge-modal-overlay {

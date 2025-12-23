@@ -232,49 +232,70 @@ async function clearBedNo(rowIdx, sheetAllRows, currentWard, callback) {
   callback && callback('ベッドNoを消去しました。');
 }
 
-// ===== 看護必要度 =====
-const NURSING_ITEMS = {
-  A: [
-    { id: 'A1', label: '医療処置1' },
-    { id: 'A2', label: '医療処置2' },
-    { id: 'A3', label: '医療処置3' },
-  ],
-  B: [
-    { id: 'B1', label: 'ADL/介助1' },
-    { id: 'B2', label: 'ADL/介助2' },
-    { id: 'B3', label: 'ADL/介助3' },
-  ],
-  C: [
-    { id: 'C1', label: '特記事項1' },
-    { id: 'C2', label: '特記事項2' },
-  ],
+// ===== 看護必要度（点数選択版） =====
+const NURSING_SCORE_RANGE = {
+  A: { min: 0, max: 10 },
+  B: { min: 0, max: 10 },
+  C: { min: 0, max: 10 },
 };
 
-const NURSING_WEIGHTS = { A: 1, B: 1, C: 1 };
-
 function nursingDetailKey(userId, wardId, rowIdx) {
-  return `bm_nursing_v1|${userId}|${wardId}|${rowIdx}`;
+  return `bm_nursing_v2|${userId}|${wardId}|${rowIdx}`;
+}
+
+function clampInt(v, min, max) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return min;
+  return String(Math.max(min, Math.min(max, Math.trunc(n))));
+}
+
+function normalizeNursingDetail(raw) {
+  // v2: {A:"2",B:"1",C:"0"} を基本
+  // v1互換: {A:[...],B:[...],C:[...]} は length に変換
+  const empty = { A: '0', B: '0', C: '0' };
+  if (!raw || typeof raw !== 'object') return empty;
+
+  const isArrayStyle =
+    Array.isArray(raw.A) || Array.isArray(raw.B) || Array.isArray(raw.C);
+
+  if (isArrayStyle) {
+    const a = Array.isArray(raw.A) ? raw.A.length : 0;
+    const b = Array.isArray(raw.B) ? raw.B.length : 0;
+    const c = Array.isArray(raw.C) ? raw.C.length : 0;
+    return {
+      A: clampInt(a, NURSING_SCORE_RANGE.A.min, NURSING_SCORE_RANGE.A.max),
+      B: clampInt(b, NURSING_SCORE_RANGE.B.min, NURSING_SCORE_RANGE.B.max),
+      C: clampInt(c, NURSING_SCORE_RANGE.C.min, NURSING_SCORE_RANGE.C.max),
+    };
+  }
+
+  return {
+    A: clampInt(raw.A, NURSING_SCORE_RANGE.A.min, NURSING_SCORE_RANGE.A.max),
+    B: clampInt(raw.B, NURSING_SCORE_RANGE.B.min, NURSING_SCORE_RANGE.B.max),
+    C: clampInt(raw.C, NURSING_SCORE_RANGE.C.min, NURSING_SCORE_RANGE.C.max),
+  };
 }
 
 function loadNursingDetail(userId, wardId, rowIdx) {
   const key = nursingDetailKey(userId, wardId, rowIdx);
   try {
-    return JSON.parse(localStorage.getItem(key) || 'null') || { A: [], B: [], C: [] };
+    const raw = JSON.parse(localStorage.getItem(key) || 'null');
+    return normalizeNursingDetail(raw);
   } catch {
-    return { A: [], B: [], C: [] };
+    return { A: '0', B: '0', C: '0' };
   }
 }
 
 function saveNursingDetail(userId, wardId, rowIdx, detail) {
   const key = nursingDetailKey(userId, wardId, rowIdx);
-  localStorage.setItem(key, JSON.stringify(detail || { A: [], B: [], C: [] }));
+  localStorage.setItem(key, JSON.stringify(normalizeNursingDetail(detail)));
 }
 
 function calcNursingScore(detail) {
-  const a = (detail?.A || []).length;
-  const b = (detail?.B || []).length;
-  const c = (detail?.C || []).length;
-  const total = a * (NURSING_WEIGHTS.A || 0) + b * (NURSING_WEIGHTS.B || 0) + c * (NURSING_WEIGHTS.C || 0);
+  const a = Number(detail?.A) || 0;
+  const b = Number(detail?.B) || 0;
+  const c = Number(detail?.C) || 0;
+  const total = a + b + c; // 表示はしないが内部計算用
   return { total, a, b, c };
 }
 
@@ -283,13 +304,25 @@ async function applyNursingSelection(rowIdx, detail, sheetAllRows, currentWard, 
   if (!session?.userId || !currentWard) return;
   if (!sheetAllRows[rowIdx]) return;
 
-  saveNursingDetail(session.userId, currentWard.id, rowIdx, detail);
+  const normalized = normalizeNursingDetail(detail);
+  saveNursingDetail(session.userId, currentWard.id, rowIdx, normalized);
 
-  const { total, a, b, c } = calcNursingScore(detail);
-  sheetAllRows[rowIdx][COL_NURSING] = `${total}（A${a}/B${b}/C${c}）`;
+  const { a, b, c } = calcNursingScore(normalized);
+
+  // ★ 表示：合計点は出さない（要望仕様）
+  sheetAllRows[rowIdx][COL_NURSING] = `A${a}/B${b}/C${c}`;
 
   await setSheetRows(session.userId, currentWard.id, sheetAllRows);
   callback && callback('保存しました。');
+}
+
+function buildScoreOptionsHtml(cat) {
+  const r = NURSING_SCORE_RANGE[cat] || { min: 0, max: 10 };
+  const opts = [];
+  for (let i = r.min; i <= r.max; i++) {
+    opts.push(`<option value="${i}">${i}</option>`);
+  }
+  return opts.join('');
 }
 
 function showNursingSelector(el, sheetAllRows, currentWard, callback) {
@@ -306,32 +339,44 @@ function showNursingSelector(el, sheetAllRows, currentWard, callback) {
   const selector = document.createElement('div');
   selector.className = 'nursing-selector';
 
-  function renderCategory(cat) {
-    const items = NURSING_ITEMS[cat] || [];
-    const selected = new Set(current[cat] || []);
-    return `
-      <div class="nursing-cat">
-        <div class="nursing-cat-title">${cat}</div>
-        ${items.map(it => `
-          <label class="nursing-item">
-            <input type="checkbox" data-cat="${cat}" data-id="${it.id}" ${selected.has(it.id) ? 'checked' : ''} />
-            <span>${escapeHtml(it.label)}</span>
-          </label>
-        `).join('')}
-      </div>
-    `;
-  }
-
   selector.innerHTML = `
     <div class="nursing-head">
-      <div class="nursing-title">看護必要度（A/B/C選択）</div>
+      <div class="nursing-title">看護必要度（点数選択）</div>
       <button class="nursing-close" type="button">✕</button>
     </div>
-    <div class="nursing-body">
-      ${renderCategory('A')}
-      ${renderCategory('B')}
-      ${renderCategory('C')}
+
+    <div class="nursing-body" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="nursing-cat">
+        <div class="nursing-cat-title">A</div>
+        <label class="nursing-item">
+          <span>点数</span>
+          <select class="nursing-score" data-cat="A">
+            ${buildScoreOptionsHtml('A')}
+          </select>
+        </label>
+      </div>
+
+      <div class="nursing-cat">
+        <div class="nursing-cat-title">B</div>
+        <label class="nursing-item">
+          <span>点数</span>
+          <select class="nursing-score" data-cat="B">
+            ${buildScoreOptionsHtml('B')}
+          </select>
+        </label>
+      </div>
+
+      <div class="nursing-cat">
+        <div class="nursing-cat-title">C</div>
+        <label class="nursing-item">
+          <span>点数</span>
+          <select class="nursing-score" data-cat="C">
+            ${buildScoreOptionsHtml('C')}
+          </select>
+        </label>
+      </div>
     </div>
+
     <div class="nursing-actions">
       <button class="btn btn-outline nursing-clear" type="button">クリア</button>
       <button class="btn btn-primary nursing-save" type="button">反映</button>
@@ -345,20 +390,26 @@ function showNursingSelector(el, sheetAllRows, currentWard, callback) {
 
   document.body.appendChild(selector);
 
+  // 初期値セット
+  selector.querySelectorAll('select.nursing-score').forEach(sel => {
+    const cat = sel.getAttribute('data-cat');
+    if (!cat) return;
+    sel.value = String(current?.[cat] ?? '0');
+  });
+
   selector.querySelector('.nursing-close')?.addEventListener('click', () => selector.remove());
 
   selector.querySelector('.nursing-clear')?.addEventListener('click', async () => {
-    await applyNursingSelection(rowIdx, { A: [], B: [], C: [] }, sheetAllRows, currentWard, callback);
+    await applyNursingSelection(rowIdx, { A: '0', B: '0', C: '0' }, sheetAllRows, currentWard, callback);
     selector.remove();
   });
 
   selector.querySelector('.nursing-save')?.addEventListener('click', async () => {
-    const next = { A: [], B: [], C: [] };
-    selector.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-      const cat = cb.getAttribute('data-cat');
-      const id = cb.getAttribute('data-id');
-      if (!cat || !id) return;
-      if (cb.checked) next[cat].push(id);
+    const next = { A: '0', B: '0', C: '0' };
+    selector.querySelectorAll('select.nursing-score').forEach(sel => {
+      const cat = sel.getAttribute('data-cat');
+      if (!cat) return;
+      next[cat] = (sel.value || '0');
     });
     await applyNursingSelection(rowIdx, next, sheetAllRows, currentWard, callback);
     selector.remove();
@@ -372,6 +423,25 @@ function showNursingSelector(el, sheetAllRows, currentWard, callback) {
       }
     });
   }, 0);
+}
+
+// 退院調整へ渡す nursing_acuity は「数値合計」にする
+function parseNursingTotalFromCell(val) {
+  const s = String(val ?? '').trim();
+  if (!s) return 0;
+
+  // 旧: "3（A1/B1/C1）"
+  const mOld = s.match(/^(\d+)/);
+  if (mOld) return Number(mOld[1]) || 0;
+
+  // 新: "A1/B2/C0"
+  const mNew = s.match(/A(\d+)\s*\/\s*B(\d+)\s*\/\s*C(\d+)/);
+  if (!mNew) return 0;
+
+  const a = Number(mNew[1]) || 0;
+  const b = Number(mNew[2]) || 0;
+  const c = Number(mNew[3]) || 0;
+  return a + b + c;
 }
 
 // ===== 退院調整 =====
@@ -393,7 +463,7 @@ function convertRowsToPatients(rows, wardName, checkedOnly = false) {
         dpc_code: dpcCode,
         adm_date: admitDate,
         los_today: String(row[COL_ADMIT_DAYS] ?? '').trim(),
-        nursing_acuity: String(row[COL_NURSING] ?? '').trim(),
+        nursing_acuity: String(parseNursingTotalFromCell(row[COL_NURSING])),
         est_discharge_date: estDischarge || admitDate,
         discharge_ready_flag: '',
         notes_flag: '',
