@@ -11,9 +11,10 @@
 const KEY_SESSION = 'bm_session_v1';
 const KEY_WARDCOUNT = 'bm_wardcount_v1';
 const KEY_WARDS = 'bm_wards_v1';
+const KEY_PLANNED_ADMISSIONS_PREFIX = 'bm_planned_admissions_v1';
+const KEY_ER_ESTIMATE_PREFIX = 'bm_er_estimate_v1';
 
 // ===== Sheet columns =====
-// ward-core.js 行 16-27 付近
 const SHEET_COLUMNS = [
   'ベッドNo',
   '患者ID',
@@ -62,6 +63,68 @@ function loadObj(key, fallback) {
 function saveObj(key, obj) {
   localStorage.setItem(key, JSON.stringify(obj));
 }
+
+// ===== 退院調整ロジック入力（予定入院 / 推定緊急入院） =====
+function plannedAdmissionsKey(userId, wardId) {
+  return `${KEY_PLANNED_ADMISSIONS_PREFIX}|${userId}|${wardId}`;
+}
+
+function erEstimateKey(userId, wardId, isoDate) {
+  return `${KEY_ER_ESTIMATE_PREFIX}|${userId}|${wardId}|${isoDate}`;
+}
+
+function normalizePlannedAdmissionsList(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((x) => ({
+      id: String(x?.id ?? '').trim(),
+      disease: String(x?.disease ?? '').trim(),
+      date: String(x?.date ?? '').trim(),
+      days: String(x?.days ?? '').trim(),
+    }))
+    .filter((x) => x.id || x.disease || x.date || x.days);
+}
+
+function getPlannedAdmissions(userId, wardId) {
+  if (!userId || !wardId) return [];
+  const key = plannedAdmissionsKey(userId, wardId);
+  const raw = loadObj(key, []);
+  return normalizePlannedAdmissionsList(raw);
+}
+
+function setPlannedAdmissions(userId, wardId, list) {
+  if (!userId || !wardId) return;
+  const key = plannedAdmissionsKey(userId, wardId);
+  saveObj(key, normalizePlannedAdmissionsList(list));
+}
+
+function getErEstimate(userId, wardId, isoDate) {
+  if (!userId || !wardId || !isoDate) return '';
+  const key = erEstimateKey(userId, wardId, isoDate);
+  const raw = localStorage.getItem(key);
+  const v = String(raw ?? '').trim();
+  if (!v) return '';
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '';
+  const clamped = Math.max(1, Math.min(10, Math.trunc(n)));
+  return String(clamped);
+}
+
+function setErEstimate(userId, wardId, isoDate, value) {
+  if (!userId || !wardId || !isoDate) return;
+  const key = erEstimateKey(userId, wardId, isoDate);
+  const v = String(value ?? '').trim();
+  if (!v) {
+    localStorage.removeItem(key);
+    return;
+  }
+  const n = Number(v);
+  if (!Number.isFinite(n)) return;
+  const clamped = Math.max(1, Math.min(10, Math.trunc(n)));
+  localStorage.setItem(key, String(clamped));
+}
+
+
 
 function loadSession() {
   return loadObj(KEY_SESSION, null);
@@ -344,6 +407,10 @@ window.WardCore = {
   escapeHtml,
   todayJSTIsoDate,
   calcAdmitDays,
+  getPlannedAdmissions,
+  setPlannedAdmissions,
+  getErEstimate,
+  setErEstimate,
   normalizeDateSlash,
   normalizeDateIso,
   parseBedNo,

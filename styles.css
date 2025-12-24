@@ -761,17 +761,19 @@ h1{ font-size:18px; margin:0; }
   gap:10px;
   margin-top:10px;
 }
-/* ===== 看護必要度セル：1行表示に固定 ===== */
-.sheet-table td:nth-child(10) .nursing-cell {
-  white-space: nowrap;      /* 折り返し禁止 */
-  overflow: hidden;         /* はみ出し非表示 */
-  text-overflow: ellipsis;  /* …表示 */
+/* ===== 看護必要度セル：行高を他列と統一 ===== */
+.sheet-table td:nth-child(11) .nursing-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   max-width: 100%;
-  min-height: 18px;         /* 空セルでも高さを確保 */
-  display: block;           /* ブロック要素として高さを確実に適用 */
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 12px;          /* 等幅フォントでコンパクトに */
+  min-height: unset;     /* ← 削除 */
+  display: inline-block; /* ← block をやめる */
+  line-height: 1.4;      /* ← 他セルと視覚的に一致 */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-size: 12px;
 }
+
 /* ===== 退院候補日モーダル ===== */
 .discharge-modal-overlay {
   position: fixed;
@@ -934,4 +936,110 @@ h1{ font-size:18px; margin:0; }
 body.has-hscroll {
   padding-bottom: 18px;
 }
+/* ===== 予定入院 / 推定緊急入院 ===== */
+.plan-wrap{
+  display:block;
+}
+
+.plan-grid{
+  display:grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap:12px;
+}
+
+@media (max-width: 860px){
+  .plan-grid{ grid-template-columns: 1fr; }
+}
+
+.plan-card{
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:14px;
+  padding:12px;
+  box-shadow: var(--shadow);
+}
+
+.plan-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.plan-title{
+  margin:0;
+  font-weight:900;
+  font-size:13px;
+}
+
+.plan-sub{
+  margin:4px 0 0;
+  color:var(--muted);
+  font-size:12px;
+}
+
+.plan-btn{
+  padding:8px 10px;
+  font-size:12px;
+  border-radius:12px;
+  white-space:nowrap;
+}
+
+.plan-table-wrap{
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:auto;
+  background:#fff;
+}
+
+.plan-table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  min-width: 560px;
+}
+
+.plan-table th,
+.plan-table td{
+  border-bottom:1px solid var(--border);
+  border-right:1px solid var(--border);
+  padding:8px;
+  font-size:12px;
+  vertical-align:top;
+  background:#fff;
+}
+
+.plan-table th{
+  background: rgba(255,255,255,.95);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align:center;
+  font-weight:800;
+  white-space: nowrap;
+}
+
+.plan-cell{
+  width:100%;
+  min-width: 8ch;
+  padding:10px 10px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-size:12px;
+  outline:none;
+  background:#fff;
+}
+
+.plan-er{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.plan-er-hint{
+  color:var(--muted);
+  font-size:12px;
+}
+
 

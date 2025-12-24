@@ -23,7 +23,10 @@ const {
   todayJSTIsoDate,
   parseBedNo,
   setSheetRows,
+  getPlannedAdmissions,
+  getErEstimate,
 } = window.WardCore;
+
 
 // ===== DPC候補ピッカー =====
 let activeDpcPicker = null;
@@ -505,20 +508,24 @@ function runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg, onDateSele
 
   const dpcMaster = buildDpcMasterMap();
   const asOfDate = todayJSTIsoDate();
-
+  const session = loadSession();
+  const userId = session?.userId;
+  const wardId = currentWard?.id;
+  const erRaw = (userId && wardId) ? getErEstimate(userId, wardId, asOfDate) : '';
+  const erAvg = erRaw ? Number(erRaw) : 2;
+  const plannedAdmissions = (userId && wardId) ? getPlannedAdmissions(userId, wardId) : [];
   const constraints = {
     ALL: {
       beds: sheetAllRows.length,
       target_occupancy: 0.85,
       hard_no_discharge_weekdays: '日',
       weekday_weights: { '日': 10, '土': 6 },
-      ER_avg: 2,
+      ER_avg: (Number.isFinite(erAvg) && erAvg > 0) ? erAvg : 2,
       scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
       risk_params: { cap_th1: 0.85, cap_th2: 0.95, nurse_max: 5 },
     }
   };
 
-// ward-features.js 行 265-275 付近
   try {
     const rawRecs = WOI.buildRecommendations(patients, {
       dpcMaster,

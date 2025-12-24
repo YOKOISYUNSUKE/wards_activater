@@ -24,6 +24,10 @@ const {
   escapeHtml,
   todayJSTIsoDate,
   calcAdmitDays,
+  getPlannedAdmissions,
+  setPlannedAdmissions,
+  getErEstimate,
+  setErEstimate,
   normalizeDateSlash,
   normalizeDateIso,
   formatBedNoDisplay,
@@ -139,6 +143,12 @@ const btnClearSheet = document.getElementById('btnClearSheet');
 const btnDischargeOptimize = document.getElementById('btnDischargeOptimize');
 const sheetMsg = document.getElementById('sheetMsg');
 const sheetSearch = document.getElementById('sheetSearch');
+const plannedAdmissionsTable = document.getElementById('plannedAdmissionsTable');
+const plannedAdmissionsMsg = document.getElementById('plannedAdmissionsMsg');
+const btnAddPlannedAdmission = document.getElementById('btnAddPlannedAdmission');
+const selectErEstimate = document.getElementById('selectErEstimate');
+const erEstimateMsg = document.getElementById('erEstimateMsg');
+
 
 // 病院全体KPI（病棟選択画面）
 const hospitalLosInpatients = document.getElementById('hospitalLosInpatients');
@@ -209,7 +219,6 @@ function parseNursingCell(val) {
   const s = String(val ?? '').trim();
   if (!s) return null;
 
-  // 新: "A1/B2/C0" → total は内部で a+b+c
   const mNew = s.match(/^A(\d+)\s*\/\s*B(\d+)\s*\/\s*C(\d+)$/);
   if (mNew) {
     const a = Number(mNew[1]);
@@ -218,6 +227,22 @@ function parseNursingCell(val) {
     if (![a, b, c].every(Number.isFinite)) return null;
     return { total: a + b + c, a, b, c };
   }
+
+  const mOld = s.match(/A(\d+)\s*\/\s*B(\d+)\s*\/\s*C(\d+)/i);
+  if (mOld) {
+    const a = Number(mOld[1]);
+    const b = Number(mOld[2]);
+    const c = Number(mOld[3]);
+    if (![a, b, c].every(Number.isFinite)) return null;
+    return { total: a + b + c, a, b, c };
+  }
+
+  return null;
+}
+
+
+
+
 function nursingKpiDayKey(userId, wardId, isoDate) {
   return `bm_nursing_kpi_day_v1|${userId}|${wardId}|${isoDate}`;
 }
@@ -429,19 +454,14 @@ async function computeHospitalKpi(userId) {
 
 
 function setHospitalKpiUiUnknown() {
-    if (hospitalNursingAvg) {
-      hospitalNursingAvg.textContent = (k.nursingKpiRate === null) ? '-%' : `${k.nursingKpiRate.toFixed(1)}%`;
-    }
-    if (hospitalNursingAvgAbc) {
-      if (k.nursingKpiRate === null) {
-        hospitalNursingAvgAbc.textContent = '-/- (3ヶ月)';
-      } else {
-        const label = (k.nursingKpiAvailDays < 90) ? `${k.nursingKpiAvailDays}日分` : '3ヶ月';
-        hospitalNursingAvgAbc.textContent = `${k.nursingKpiNum}/${k.nursingKpiDenom} (${label})`;
-      }
-    }
-
+  if (hospitalLosInpatients) hospitalLosInpatients.textContent = '-名';
+  if (hospitalLosAvg) hospitalLosAvg.textContent = '-日';
+  if (hospitalNursingAvgAbc) hospitalNursingAvgAbc.textContent = '-/- (3ヶ月)';
+  if (hospitalNursingAvg) hospitalNursingAvg.textContent = '-%';
+  if (hospitalOccFraction) hospitalOccFraction.textContent = '0/0';
+  if (hospitalOccPercent) hospitalOccPercent.textContent = '0%';
 }
+
 
 async function updateHospitalKpiUI(userId) {
   const hasAny = !!(hospitalLosInpatients || hospitalLosAvg || hospitalNursingAvgAbc || hospitalNursingAvg || hospitalOccFraction || hospitalOccPercent);
@@ -454,13 +474,22 @@ async function updateHospitalKpiUI(userId) {
     if (hospitalLosInpatients) hospitalLosInpatients.textContent = `${k.inpatients}名`;
     if (hospitalLosAvg) hospitalLosAvg.textContent = (k.losAvg === null) ? '-日' : `${k.losAvg.toFixed(1)}日`;
 
-    if (hospitalNursingAvg) hospitalNursingAvg.textContent = (k.nursingAvgTotal === null) ? '-' : k.nursingAvgTotal.toFixed(1);
-    if (hospitalNursingAvgAbc) {
-      const aTxt = (k.nursingAvgA === null) ? '-' : k.nursingAvgA.toFixed(1);
-      const bTxt = (k.nursingAvgB === null) ? '-' : k.nursingAvgB.toFixed(1);
-      const cTxt = (k.nursingAvgC === null) ? '-' : k.nursingAvgC.toFixed(1);
-      hospitalNursingAvgAbc.textContent = `A${aTxt}/B${bTxt}/C${cTxt}`;
-    }
+if (hospitalNursingAvg) {
+  hospitalNursingAvg.textContent =
+    (k.nursingKpiRate === null) ? '-%' : `${k.nursingKpiRate.toFixed(1)}%`;
+}
+
+if (hospitalNursingAvgAbc) {
+  if (k.nursingKpiRate === null) {
+    hospitalNursingAvgAbc.textContent = '-/- (3ヶ月)';
+  } else {
+    const label =
+      (k.nursingKpiAvailDays < 90) ? `${k.nursingKpiAvailDays}日分` : '3ヶ月';
+    hospitalNursingAvgAbc.textContent =
+      `${k.nursingKpiNum}/${k.nursingKpiDenom} (${label})`;
+  }
+}
+
 
     if (hospitalOccFraction) hospitalOccFraction.textContent = `${k.inpatients}/${k.bedCount}`;
     if (hospitalOccPercent) hospitalOccPercent.textContent = `${Math.round(k.occPercent)}%`;
@@ -598,6 +627,98 @@ function renderWardButtons(userId) {
   updateWardCountBadge(userId);
 }
 
+
+function getActiveUserWard() {
+  const session = loadSession();
+  const userId = session?.userId || '';
+  const wardId = currentWard?.id || '';
+  return { userId, wardId };
+}
+
+function refreshPlanInputsUi() {
+  const { userId, wardId } = getActiveUserWard();
+  if (!userId || !wardId) return;
+
+  const planned = getPlannedAdmissions(userId, wardId);
+  renderPlannedAdmissionsTable(planned);
+
+  const iso = todayJSTIsoDate();
+  const er = getErEstimate(userId, wardId, iso);
+  if (selectErEstimate) selectErEstimate.value = er || '';
+
+  if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '';
+  if (erEstimateMsg) erEstimateMsg.textContent = '';
+}
+
+function initPlanInputs() {
+  if (btnAddPlannedAdmission) {
+    btnAddPlannedAdmission.addEventListener('click', () => {
+      const { userId, wardId } = getActiveUserWard();
+      if (!userId || !wardId) return;
+
+      const list = getPlannedAdmissions(userId, wardId);
+      list.push({ id: '', disease: '', date: '', days: '' });
+      setPlannedAdmissions(userId, wardId, list);
+      renderPlannedAdmissionsTable(list);
+      if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '追加しました';
+    });
+  }
+
+  if (selectErEstimate) {
+    selectErEstimate.addEventListener('change', () => {
+      const { userId, wardId } = getActiveUserWard();
+      if (!userId || !wardId) return;
+
+      const iso = todayJSTIsoDate();
+      setErEstimate(userId, wardId, iso, selectErEstimate.value);
+      if (erEstimateMsg) erEstimateMsg.textContent = '保存しました';
+    });
+  }
+
+  // 予定入院：入力変更（自動保存）
+  plannedAdmissionsTable?.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (!t.classList.contains('plan-cell')) return;
+
+    const idx = Number(t.getAttribute('data-i'));
+    const key = t.getAttribute('data-k');
+    if (!Number.isFinite(idx) || idx < 0 || !key) return;
+
+    const { userId, wardId } = getActiveUserWard();
+    if (!userId || !wardId) return;
+
+    const list = getPlannedAdmissions(userId, wardId);
+    while (list.length <= idx) list.push({ id: '', disease: '', date: '', days: '' });
+
+    const val = (t instanceof HTMLInputElement) ? t.value : '';
+    list[idx] = { ...list[idx], [key]: val };
+
+    setPlannedAdmissions(userId, wardId, list);
+    if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '保存しました';
+  });
+
+  // 予定入院：削除
+  plannedAdmissionsTable?.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    const del = t.getAttribute('data-del');
+    if (del === null) return;
+
+    const idx = Number(del);
+    if (!Number.isFinite(idx) || idx < 0) return;
+
+    const { userId, wardId } = getActiveUserWard();
+    if (!userId || !wardId) return;
+
+    const list = getPlannedAdmissions(userId, wardId);
+    list.splice(idx, 1);
+    setPlannedAdmissions(userId, wardId, list);
+    renderPlannedAdmissionsTable(list);
+    if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '削除しました';
+  });
+}
+
 // ===== シート操作 =====
 async function openWardSheet(ward) {
   const session = loadSession();
@@ -634,8 +755,10 @@ async function openWardSheet(ward) {
   showFixedHScroll();
   updateFixedHScrollMetrics();
 
-applySearchAndSort();
-updateKpiUI();
+  refreshPlanInputsUi();
+
+  applySearchAndSort();
+  updateKpiUI();
 
 }
 
@@ -682,6 +805,33 @@ function applySearchAndSort() {
 
   sheetViewRows = items;
   renderSheetTable(sheetViewRows);
+}
+
+function renderPlannedAdmissionsTable(items) {
+  if (!plannedAdmissionsTable) return;
+
+  plannedAdmissionsTable.innerHTML = `
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>病名</th>
+        <th>入院予定日</th>
+        <th>予定期間（日）</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items.map((row, idx) => `
+        <tr>
+          <td><input class="plan-cell" value="${row.id || ''}" data-i="${idx}" data-k="id"></td>
+          <td><input class="plan-cell" value="${row.disease || ''}" data-i="${idx}" data-k="disease"></td>
+          <td><input type="date" class="plan-cell" value="${row.date || ''}" data-i="${idx}" data-k="date"></td>
+          <td><input type="number" class="plan-cell" min="1" value="${row.days || ''}" data-i="${idx}" data-k="days"></td>
+          <td><button class="btn btn-outline" data-del="${idx}">削除</button></td>
+        </tr>
+      `).join('')}
+    </tbody>
+  `;
 }
 
 // ===== テーブル描画 =====
@@ -754,10 +904,15 @@ if (c === COL_NURSING) {
   `;
 
   sheetTable.innerHTML = thead + tbody;
- 
+  bindSheetEvents();
   updateFixedHScrollMetrics();
- 
- // ソートイベント
+}
+
+// ===== テーブル内イベント =====
+function bindSheetEvents() {
+  if (!sheetTable) return;
+
+  // ソートイベント
   sheetTable.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
       const col = Number(th.getAttribute('data-col'));
@@ -770,7 +925,6 @@ if (c === COL_NURSING) {
       applySearchAndSort();
     });
   });
-
   // セル編集イベント
   sheetTable.querySelectorAll('.cell').forEach(el => {
     el.addEventListener('blur', () => {
@@ -1083,7 +1237,26 @@ btnAddWard?.addEventListener('click', () => {
   addWardForUser(session.userId);
 });
 
-btnBackToWards?.addEventListener('click', () => backToWards());
+btnBackToWards?.addEventListener('click', async () => {
+  const session = loadSession();
+  if (!session?.userId) return;
+
+  try {
+    // ① シートを必ず保存
+    await persistSheetFromDom();
+
+    // ② 病院全体KPIを再計算・反映
+    await updateHospitalKpiUI(session.userId);
+
+  } catch (e) {
+    console.warn('戻る処理中にエラー:', e);
+    setSheetMsg('保存またはKPI更新に失敗しました。', true);
+  }
+
+  // ③ 病棟選択画面へ
+  backToWards();
+});
+
 btnClearSheet?.addEventListener('click', () => clearSheet());
 btnDischargeOptimize?.addEventListener('click', () => {
   runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg, async (rowIdx, dateIso) => {
@@ -1109,6 +1282,8 @@ inputBedCount?.addEventListener('change', () => {
 });
 
 sheetSearch?.addEventListener('input', () => applySearchAndSort());
+
+initPlanInputs();
 
 // ===== 初期化 =====
 (async function bootstrapWard() {

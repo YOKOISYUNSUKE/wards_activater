@@ -116,23 +116,28 @@
 
 <!-- Ward Sheet View -->
 <section id="sheetView" class="card hidden">
-<!-- 修正箇所: sheetView内のシートツールバーにボタン追加 -->
-<!-- 行 146 付近 -->
-<div class="sheet-toolbar-left">
+<div class="sheet-toolbar">
+  <div class="sheet-toolbar-left">
     <label class="label">
-  <span>病床数</span>
-  <input
-    id="inputBedCount"
-    class="input"
-    type="number"
-    min="0"
-    max="200"
-    step="1"
-    placeholder="例：40"
-  />
-</label>
+      <span>病床数</span>
+      <input
+        id="inputBedCount"
+        class="input"
+        type="number"
+        min="0"
+        max="200"
+        step="1"
+        placeholder="例：40"
+      />
+    </label>
     <button id="btnDischargeOptimize" class="btn btn-primary" type="button">退院調整</button>
   </div>
+  <div class="sheet-toolbar-right">
+    <input id="sheetSearch" class="input" type="search" placeholder="検索（患者ID/病名/DPC/退院予定日/メモ…）" />
+  </div>
+</div>
+
+
 <div class="sheet-head">
   <button id="btnBackToWards" class="btn btn-ghost">← 病棟選択へ</button>
   <div>
@@ -160,7 +165,7 @@
       <span id="nursingAvgAbc" class="kpi-subnum">A-/B-/C-</span>
       <span id="nursingAvg" class="kpi-num">-</span>
     </div>
-    <p class="kpi-sub">合計点平均</p>
+    <p class="kpi-sub">①②③該当/延べ入院患者</p>
   </div>
 
   <div class="kpi-box">
@@ -176,18 +181,62 @@
 
   <div class="divider"></div>
 
+  <!-- 予定入院 / 推定緊急入院（退院調整ロジック用の入力） -->
+  <div class="plan-wrap" aria-label="予定入院と推定緊急入院">
+    <div class="plan-grid">
+      <div class="plan-card">
+        <div class="plan-card-head">
+          <div>
+            <p class="plan-title">予定入院患者登録</p>
+            <p class="plan-sub">ID / 病名 / 入院予定日 / 予定入院期間（日）</p>
+          </div>
+          <button id="btnAddPlannedAdmission" class="btn btn-outline plan-btn" type="button">＋ 追加</button>
+        </div>
+
+        <div class="plan-table-wrap">
+          <table id="plannedAdmissionsTable" class="plan-table"></table>
+        </div>
+        <div id="plannedAdmissionsMsg" class="msg" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-card-head">
+          <div>
+            <p class="plan-title">推定緊急入院患者人数</p>
+            <p class="plan-sub">本日分（1〜10）</p>
+          </div>
+        </div>
+
+        <div class="plan-er">
+          <label class="label" style="margin:0;">
+            <span>人数</span>
+            <select id="selectErEstimate" class="input">
+              <option value="">未設定</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </label>
+          <div class="plan-er-hint">※ 保存は自動です。</div>
+        </div>
+        <div id="erEstimateMsg" class="msg" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
   <!-- ローカル簡易スプレッドシート -->
   <h3 class="sheet-subtitle">院内シート（ローカル保存）</h3>
+
   <p class="muted">セルをクリックして編集 → 自動保存します。</p>
-
-<div class="sheet-toolbar">
-  <div class="sheet-toolbar-left">
-  </div>
-
-  <div class="sheet-toolbar-right">
-    <input id="sheetSearch" class="input" type="search" placeholder="検索（患者ID/病名/DPC/退院予定日/メモ…）" />
-  </div>
-</div>
 
 
 
