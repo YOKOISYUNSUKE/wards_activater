@@ -1041,5 +1041,24 @@ body.has-hscroll {
   color:var(--muted);
   font-size:12px;
 }
+/* ===== 患者ID：ドラッグ＆ドロップで入れ替え ===== */
+.patient-id-cell{
+  cursor: grab;
+}
+
+.patient-id-cell:active{
+  cursor: grabbing;
+}
+
+.patient-id-cell.dragging{
+  opacity: .55;
+}
+
+.patient-id-cell.drag-over{
+  outline: 2px dashed rgba(37,99,235,.55);
+  outline-offset: 2px;
+  border-radius: 8px;
+  background: rgba(219,234,254,.55);
+}
 
 

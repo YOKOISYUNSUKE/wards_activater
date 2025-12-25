@@ -165,6 +165,8 @@ let sheetAllRows = [];
 let sheetViewRows = [];
 let sortState = { col: -1, dir: 0 };
 
+
+
 // ===== メッセージ表示 =====
 function setWardMsg(text, isError = false) {
   if (!wardMsg) return;
@@ -399,6 +401,28 @@ function updateKpiUI() {
   updateNursingUI();
   updateOccupancyUI();
 }
+
+function refreshAdmitDaysAllRows() {
+  let changed = false;
+
+  (sheetAllRows || []).forEach((row, idx) => {
+    if (!row) return;
+
+    const admit = String(row[COL_ADMIT_DATE] ?? '').trim();
+    if (!admit) return;
+
+    const nextDays = calcAdmitDays(admit);
+    const curDays = String(row[COL_ADMIT_DAYS] ?? '').trim();
+
+    if (nextDays !== curDays) {
+      row[COL_ADMIT_DAYS] = nextDays;
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
 
 async function computeHospitalKpi(userId) {
   const wards = getWardsForUser(userId);
@@ -657,10 +681,23 @@ function initPlanInputs() {
       if (!userId || !wardId) return;
 
       const list = getPlannedAdmissions(userId, wardId);
+
+      if (list.length >= 20) {
+        if (plannedAdmissionsMsg) {
+          plannedAdmissionsMsg.textContent = '予定入院患者は最大20人まで登録できます。';
+          plannedAdmissionsMsg.classList.add('error');
+        }
+        return;
+      }
+
       list.push({ id: '', disease: '', date: '', days: '' });
       setPlannedAdmissions(userId, wardId, list);
       renderPlannedAdmissionsTable(list);
-      if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '追加しました';
+
+      if (plannedAdmissionsMsg) {
+        plannedAdmissionsMsg.textContent = '追加しました';
+        plannedAdmissionsMsg.classList.remove('error');
+      }
     });
   }
 
@@ -675,7 +712,6 @@ function initPlanInputs() {
     });
   }
 
-  // 予定入院：入力変更（自動保存）
   plannedAdmissionsTable?.addEventListener('input', (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
@@ -698,7 +734,6 @@ function initPlanInputs() {
     if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '保存しました';
   });
 
-  // 予定入院：削除
   plannedAdmissionsTable?.addEventListener('click', (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
@@ -719,6 +754,7 @@ function initPlanInputs() {
   });
 }
 
+
 // ===== シート操作 =====
 async function openWardSheet(ward) {
   const session = loadSession();
@@ -738,9 +774,17 @@ async function openWardSheet(ward) {
     return;
   }
 
-  sheetAllRows = await getSheetRows(session.userId, ward.id);
-  recordNursingKpiForToday(session.userId, ward.id, sheetAllRows);
-  setSheetMsg('');
+sheetAllRows = await getSheetRows(session.userId, ward.id);
+
+// ★ 入院日数を「今日」で自動更新（必要なら保存）
+const losChanged = refreshAdmitDaysAllRows();
+if (losChanged) {
+  await setSheetRows(session.userId, ward.id, sheetAllRows);
+}
+
+recordNursingKpiForToday(session.userId, ward.id, sheetAllRows);
+setSheetMsg('');
+
 
 
   if (sheetWardName) sheetWardName.textContent = `${ward.name}（${ward.id}）`;
@@ -892,11 +936,31 @@ if (c === COL_NURSING) {
                 </td>
               `;
             }
+if (c === COL_PATIENT_ID) {
+  return `
+    <td>
+      <div
+        class="cell patient-id-cell"
+        contenteditable="true"
+        draggable="false"
+        data-idx="${it.idx}"
+        data-c="${c}"
+        title="患者IDを長押し→ドラッグ＆ドロップで、他の患者と入れ替えできます（ベッドNoは固定）"
+      >${escapeHtml(cell)}</div>
+    </td>
+  `;
+}
+
+
             return `
               <td>
-                <div class="cell" contenteditable="true" data-idx="${it.idx}" data-c="${c}">${escapeHtml(cell)}</div>
+                <div class="cell" contenteditable="true" data-idx="${it.idx}" data-c="${c}">
+                  ${escapeHtml(cell)}
+                </div>
               </td>
             `;
+
+
           }).join('')}
         </tr>
       `).join('')}
@@ -1064,6 +1128,18 @@ if (c === COL_PATIENT_ID) {
       }
     });
   });
+
+  // 患者ID：ドラッグ＆ドロップで入れ替え（処理本体：ward-dnd.js）
+  if (window.WardDnD && typeof window.WardDnD.bindPatientSwap === 'function') {
+    window.WardDnD.bindPatientSwap(sheetTable, {
+      getRows: () => sheetAllRows,
+      getWard: () => currentWard,
+      setMsg: (text, isError) => setSheetMsg(text, isError),
+      applySearchAndSort,
+      updateKpiUI,
+    });
+  }
+
 
   // ベッドNo列クリック
   sheetTable.querySelectorAll('.bed-no-cell').forEach(el => {
