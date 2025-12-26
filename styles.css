@@ -1060,5 +1060,20 @@ body.has-hscroll {
   border-radius: 8px;
   background: rgba(219,234,254,.55);
 }
+.sheet-table td .cell,
+.sheet-table td .patient-id-cell {
+  min-height: 36px;
+  line-height: 24px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+}
+/* ===== 入院日数（10列目）だけ中央揃えを強制 ===== */
+.sheet-table td:nth-child(10) .cell{
+  justify-content: center;
+  text-align: center;
+}
 
 
