@@ -176,11 +176,16 @@ function showBedTypeSelector(el, sheetAllRows, onApply) {
 
   const rowIdx = Number(el.getAttribute('data-idx'));
   const raw = el.getAttribute('data-raw') || '';
-  const parsed = parseBedNo(raw);
+const parsed = parseBedNo(raw);
 
-  if (parsed.slot > 1) return;
+// 子スロット（-2/-3/-4）をクリックした場合は、親ベッド行に委譲
+let targetRowIdx = rowIdx;
+if (parsed.slot > 1) {
+  targetRowIdx = rowIdx - (parsed.slot - 1);
+}
 
-  const currentNum = parsed.num || String(rowIdx + 1);
+const currentNum = parsed.num || String(targetRowIdx + 1);
+
 
   const selector = document.createElement('div');
   selector.className = 'bed-type-selector';

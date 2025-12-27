@@ -13,6 +13,7 @@ const KEY_WARDCOUNT = 'bm_wardcount_v1';
 const KEY_WARDS = 'bm_wards_v1';
 const KEY_PLANNED_ADMISSIONS_PREFIX = 'bm_planned_admissions_v1';
 const KEY_ER_ESTIMATE_PREFIX = 'bm_er_estimate_v1';
+const KEY_WARD_TRANSFERS_PREFIX = 'bm_ward_transfers_v1';
 
 // ===== Sheet columns =====
 const SHEET_COLUMNS = [
@@ -124,11 +125,50 @@ function setErEstimate(userId, wardId, isoDate, value) {
   localStorage.setItem(key, String(clamped));
 }
 
+// ===== 病棟移動（病棟間で共有） =====
+function wardTransfersKey(userId) {
+  return `${KEY_WARD_TRANSFERS_PREFIX}|${userId}`;
+}
 
+function normalizeWardTransfersList(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((x) => ({
+      id: String(x?.id ?? '').trim(),
+      fromWardId: String(x?.fromWardId ?? '').trim(),
+      toWardId: String(x?.toWardId ?? '').trim(),
+      updatedAt: String(x?.updatedAt ?? '').trim(),
+    }))
+    .filter((x) => x.id || x.fromWardId || x.toWardId);
+}
+
+function getWardTransfers(userId) {
+  if (!userId) return [];
+  const key = wardTransfersKey(userId);
+  const raw = loadObj(key, []);
+  return normalizeWardTransfersList(raw);
+}
+
+function setWardTransfers(userId, list) {
+  if (!userId) return;
+  const key = wardTransfersKey(userId);
+  const next = normalizeWardTransfersList(list).map(x => ({
+    ...x,
+    updatedAt: new Date().toISOString(),
+  }));
+  saveObj(key, next);
+}
+
+function getWardTransfersForWard(userId, wardId) {
+  if (!userId || !wardId) return [];
+  return getWardTransfers(userId)
+    .filter(x => x.fromWardId === wardId || x.toWardId === wardId);
+}
 
 function loadSession() {
   return loadObj(KEY_SESSION, null);
 }
+
 
 function escapeHtml(s) {
   return String(s ?? '')
@@ -199,13 +239,43 @@ function parseBedNo(val) {
 function formatBedNoDisplay(val) {
   const p = parseBedNo(val);
   if (p.isEmpty) return '';
+
   if (p.slot > 0) return `-${p.slot}`;
+
   switch (p.type) {
-    case BED_TYPES.DOUBLE: return `${p.num}-1`;
-    case BED_TYPES.QUAD: return `${p.num}-1`;
-    default: return p.num;
+    case BED_TYPES.DOUBLE:
+    case BED_TYPES.QUAD:
+      return `${p.num}-1`;
+    default:
+      return p.num;
   }
 }
+
+function formatBedNoDisplayHtml(val) {
+  const p = parseBedNo(val);
+  if (p.isEmpty) return '';
+
+  // child（"123-2" 等）: 部屋番号は透明、"-2" は見せる
+  if (p.slot > 1) {
+    const num = escapeHtml(p.num);
+    return `<span class="bed-room-ghost">${num}</span><span class="bed-suffix">-${p.slot}</span>`;
+  }
+
+  // 安全策：もし "123-1" が来たら通常表示
+  if (p.slot === 1) {
+    return `${escapeHtml(p.num)}-1`;
+  }
+
+  // base（"123:double" 等）や個室
+  switch (p.type) {
+    case BED_TYPES.DOUBLE:
+    case BED_TYPES.QUAD:
+      return `${escapeHtml(p.num)}-1`; // 部屋番号は見える
+    default:
+      return escapeHtml(p.num); // 個室
+  }
+}
+
 
 // ===== シート行の正規化 =====
 function normalizeSheetRows(rows) {
@@ -402,6 +472,11 @@ window.WardCore = {
   COL_EST_DISCHARGE,
   BED_TYPES,
 
+  // 表示ユーティリティ
+  parseBedNo,
+  formatBedNoDisplay,
+  formatBedNoDisplayHtml,
+
   // ユーティリティ
   loadSession,
   escapeHtml,
@@ -413,8 +488,6 @@ window.WardCore = {
   setErEstimate,
   normalizeDateSlash,
   normalizeDateIso,
-  parseBedNo,
-  formatBedNoDisplay,
   makeEmptyRows,
 
   // IndexedDB
@@ -428,6 +501,12 @@ window.WardCore = {
   setWardsForUser,
   getNextWardNumber,
   defaultWardName,
+
+  getWardTransfers,
+  setWardTransfers,
+  getWardTransfersForWard,
+
 };
+
 
 })();

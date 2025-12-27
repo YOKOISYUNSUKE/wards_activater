@@ -127,7 +127,9 @@ h1 { font-size: 18px; margin: 0; }
   border-color: #93c5fd;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, .12);
 }
-.plan-cell { padding: 10px; font-size: 12px; border-radius: 10px; }
+.plan-cell, .transfer-cell { padding: 10px; font-size: 12px; border-radius: 10px; }
+
+.error { color: var(--danger); }
 
 /* ==========================================================================
    Table & Sheet View
@@ -332,3 +334,27 @@ h1 { font-size: 18px; margin: 0; }
   border-top: 1px solid var(--border); backdrop-filter: blur(6px); z-index: 9997;
 }
 body.has-hscroll { padding-bottom: 18px; }
+.bed-room-ghost {
+  color: transparent;
+}
+
+/* 予定入院 / 病棟移動 / 推定緊急入院 を横並び */
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* 画面が狭い場合は自動で2列→1列 */
+@media (max-width: 1200px) {
+  .plan-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 768px) {
+  .plan-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

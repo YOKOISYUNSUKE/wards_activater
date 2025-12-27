@@ -26,7 +26,7 @@
     calcAdmitDays,
     normalizeDateSlash,
     normalizeDateIso,
-    formatBedNoDisplay,
+    formatBedNoDisplayHtml,
     setSheetRows,
   } = window.WardCore;
 
@@ -135,14 +135,15 @@
         ${items.map((it) => `
           <tr data-idx="${it.idx}">
             ${it.row.map((cell, c) => {
-              if (c === COL_BED_NO) {
-                const display = formatBedNoDisplay(cell);
-                return `
-                  <td>
-                    <div class="cell bed-no-cell" data-idx="${it.idx}" data-c="${c}" data-raw="${escapeHtml(cell)}">${escapeHtml(display)}</div>
-                  </td>
-                `;
-              }
+if (c === COL_BED_NO) {
+  const html = formatBedNoDisplayHtml(cell);
+  return `
+    <td>
+      <div class="cell bed-no-cell" data-idx="${it.idx}" data-c="${c}" data-raw="${escapeHtml(cell)}">${html}</div>
+    </td>
+  `;
+}
+
               if (c === COL_DISCHARGE_OK) {
                 const checked = String(cell || '').trim() === '1';
                 return `
@@ -332,32 +333,53 @@
       });
     });
 
-    // ベッドNoセル（クリックでベッドタイプ選択など）
-    sheetTable.querySelectorAll('.bed-no-cell').forEach(cell => {
-      cell.addEventListener('click', () => {
-        const rowIdx = Number(cell.getAttribute('data-idx'));
-        const raw = cell.getAttribute('data-raw') || '';
-        showBedTypeSelector(raw, (next) => {
-          const newRaw = applyBedType(raw, next);
-          cell.setAttribute('data-raw', newRaw);
-          cell.textContent = formatBedNoDisplay(newRaw);
+// ベッドNoセル（クリックでベッドタイプ選択など）
+sheetTable.querySelectorAll('.bed-no-cell').forEach(cell => {
+  cell.addEventListener('click', () => {
+    const rowIdx = Number(cell.getAttribute('data-idx'));
+    if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
 
-          if (Number.isFinite(rowIdx) && rowIdx >= 0 && st.sheetAllRows?.[rowIdx]) {
-            st.sheetAllRows[rowIdx][COL_BED_NO] = newRaw;
-          }
-          persistSheetFromDom('自動保存しました');
-        }, () => {
-          const cleared = clearBedNo(raw);
-          cell.setAttribute('data-raw', cleared);
-          cell.textContent = formatBedNoDisplay(cleared);
+    // ward-features.js の正しいシグネチャに合わせる
+    showBedTypeSelector(cell, st.sheetAllRows, async (action, startIdx, inputNum, bedType) => {
+      if (!Number.isFinite(startIdx) || startIdx < 0) return;
 
-          if (Number.isFinite(rowIdx) && rowIdx >= 0 && st.sheetAllRows?.[rowIdx]) {
-            st.sheetAllRows[rowIdx][COL_BED_NO] = cleared;
-          }
-          persistSheetFromDom('自動保存しました');
-        });
-      });
+      try {
+        if (action === 'clear') {
+          await clearBedNo(startIdx, st.sheetAllRows, st.currentWard, (msg) => {
+            if (msg) setSheetMsg(msg);
+          });
+        } else if (action === 'set') {
+          await applyBedType(startIdx, inputNum, bedType, st.sheetAllRows, st.currentWard, (msg) => {
+            if (msg) setSheetMsg(msg);
+          });
+        }
+
+        // UI表示を rows の最新値に同期（複数床は連動して表示更新）
+        const refreshBedCell = (idx) => {
+          const el = sheetTable.querySelector(`.bed-no-cell[data-idx="${idx}"]`);
+          if (!el) return;
+          const raw = String(st.sheetAllRows?.[idx]?.[COL_BED_NO] ?? '');
+          el.setAttribute('data-raw', raw);
+          el.innerHTML = formatBedNoDisplayHtml(raw);
+        };
+
+        refreshBedCell(startIdx);
+
+        const bt = String(bedType || '');
+        const slotCount = (bt === 'quad') ? 4 : (bt === 'double') ? 2 : 1;
+        for (let i = 1; i < slotCount; i++) {
+          refreshBedCell(startIdx + i);
+        }
+
+        updateKpiUI();
+      } catch (e) {
+        console.error(e);
+        setSheetMsg('ベッドNoの更新に失敗しました。', true);
+      }
     });
+  });
+});
+
 
 // 看護必要度（クリックで選択）
 sheetTable.querySelectorAll('.nursing-cell').forEach(cell => {

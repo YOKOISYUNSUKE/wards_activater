@@ -16,6 +16,10 @@
     setPlannedAdmissions,
     getErEstimate,
     setErEstimate,
+    getWardTransfersForWard,
+    getWardTransfers,
+    setWardTransfers,
+    getWardsForUser,
     normalizeDateSlash,
     makeEmptyRows,
     getSheetRows,
@@ -43,10 +47,14 @@
       plannedAdmissionsTable: document.getElementById('plannedAdmissionsTable'),
       plannedAdmissionsMsg: document.getElementById('plannedAdmissionsMsg'),
       btnAddPlannedAdmission: document.getElementById('btnAddPlannedAdmission'),
+      wardTransfersTable: document.getElementById('wardTransfersTable'),
+      wardTransfersMsg: document.getElementById('wardTransfersMsg'),
+      btnAddWardTransfer: document.getElementById('btnAddWardTransfer'),
       selectErEstimate: document.getElementById('selectErEstimate'),
       erEstimateMsg: document.getElementById('erEstimateMsg'),
     };
   }
+
 
   function state() {
     window.BMWardState = window.BMWardState || {
@@ -111,6 +119,265 @@
     `;
   }
 
+// ===== 病棟移動（移動元/移動先の両病棟で共有） =====
+function ensureWardTransfersUi() {
+  const d = dom();
+  if (d.wardTransfersTable && d.btnAddWardTransfer && d.wardTransfersMsg) return;
+
+  // plan-grid 内（予定入院 / 病棟移動 / 推定緊急入院）にカードを追加
+  const planGrid = document.querySelector('.plan-grid');
+  if (!planGrid) return;
+
+  // 二重生成防止
+  if (document.getElementById('wardTransfersCard')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'plan-card';
+  wrap.id = 'wardTransfersCard';
+  wrap.innerHTML = `
+    <div class="plan-card-head">
+      <div>
+        <p class="plan-title">病棟移動</p>
+        <p class="plan-sub">移動元 / 移動先</p>
+      </div>
+      <button class="btn btn-outline plan-btn" id="btnAddWardTransfer" type="button">＋ 追加</button>
+    </div>
+
+    <div class="plan-table-wrap">
+      <table class="plan-table" id="wardTransfersTable"></table>
+    </div>
+
+    <div id="wardTransfersMsg" class="msg" role="status" aria-live="polite"></div>
+
+    <div class="muted" style="margin-top:6px;">
+      ※「移動先」＝この病棟 → 他病棟 ／ 「移動元」＝他病棟 → この病棟
+    </div>
+  `;
+
+  planGrid.appendChild(wrap);
+}
+
+
+  function getWardLabelMap(userId) {
+    const wards = getWardsForUser ? getWardsForUser(userId) : [];
+    const map = new Map();
+    wards.forEach(w => map.set(w.id, `${w.name}（${w.id}）`));
+    return { wards, map };
+  }
+
+  function renderWardTransfersTable(items, userId, wardId) {
+    const { wardTransfersTable } = dom();
+    if (!wardTransfersTable) return;
+
+    const { wards, map } = getWardLabelMap(userId);
+
+    wardTransfersTable.innerHTML = `
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>移動先/移動元</th>
+          <th>相手病棟</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(items || []).map((row, idx) => {
+          const isTo = row.fromWardId === wardId;
+          const mode = isTo ? 'to' : 'from';
+          const otherWardId = isTo ? row.toWardId : row.fromWardId;
+          const otherLabel = map.get(otherWardId) || otherWardId || '';
+
+          return `
+            <tr>
+              <td><input class="transfer-cell" value="${escapeHtml(row.id || '')}" data-i="${idx}" data-k="id"></td>
+              <td>
+                <select class="transfer-cell" data-i="${idx}" data-k="mode">
+                  <option value="to" ${mode === 'to' ? 'selected' : ''}>移動先</option>
+                  <option value="from" ${mode === 'from' ? 'selected' : ''}>移動元</option>
+                </select>
+              </td>
+              <td>
+                <select class="transfer-cell" data-i="${idx}" data-k="ward">
+                  <option value="">（選択）</option>
+                  ${wards.map(w => `
+                    <option value="${escapeHtml(w.id)}" ${(w.id === otherWardId) ? 'selected' : ''}>
+                      ${escapeHtml(w.name)}（${escapeHtml(w.id)}）
+                    </option>
+                  `).join('')}
+                </select>
+                <div class="muted" style="margin-top:2px;">${escapeHtml(otherLabel)}</div>
+              </td>
+              <td><button class="btn btn-outline" data-del-transfer="${idx}">削除</button></td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    `;
+  }
+
+  function refreshWardTransfersUi() {
+    ensureWardTransfersUi();
+
+    const { wardTransfersMsg } = dom();
+    const { userId, wardId } = getActiveUserWard();
+    if (!userId || !wardId) return;
+
+    const list = getWardTransfersForWard ? getWardTransfersForWard(userId, wardId) : [];
+    renderWardTransfersTable(list, userId, wardId);
+
+    if (wardTransfersMsg) {
+      wardTransfersMsg.textContent = '';
+      wardTransfersMsg.classList.remove('error');
+    }
+  }
+
+  function updateOneTransfer(userId, wardId, idx, patch) {
+    const viewList = getWardTransfersForWard(userId, wardId);
+    const row = viewList[idx];
+    if (!row) return { ok: false, msg: '対象行が見つかりません。' };
+
+    const all = getWardTransfers(userId);
+
+    const k = `${row.updatedAt}|${row.id}|${row.fromWardId}|${row.toWardId}`;
+    const pos = all.findIndex(x => `${x.updatedAt}|${x.id}|${x.fromWardId}|${x.toWardId}` === k);
+    if (pos < 0) return { ok: false, msg: '保存対象が見つかりません。再読み込みしてください。' };
+
+    const next = { ...all[pos], ...patch };
+
+    if (patch.mode || patch.otherWardId || patch.id !== undefined) {
+      const mode = patch.mode || (next.fromWardId === wardId ? 'to' : 'from');
+      const otherWardId = patch.otherWardId ?? (mode === 'to' ? next.toWardId : next.fromWardId);
+
+      if (mode === 'to') {
+        next.fromWardId = wardId;
+        next.toWardId = otherWardId || '';
+      } else {
+        next.fromWardId = otherWardId || '';
+        next.toWardId = wardId;
+      }
+    }
+
+    all[pos] = next;
+    setWardTransfers(userId, all);
+    return { ok: true };
+  }
+
+  function initWardTransfersInputs() {
+    const { wardTransfersTable, wardTransfersMsg, btnAddWardTransfer } = dom();
+
+    if (btnAddWardTransfer) {
+      btnAddWardTransfer.addEventListener('click', () => {
+        const { userId, wardId } = getActiveUserWard();
+        if (!userId || !wardId) return;
+
+        const viewList = getWardTransfersForWard(userId, wardId);
+        if (viewList.length >= 20) {
+          if (wardTransfersMsg) {
+            wardTransfersMsg.textContent = '病棟移動は最大20件まで登録できます。';
+            wardTransfersMsg.classList.add('error');
+          }
+          return;
+        }
+
+        const all = getWardTransfers(userId);
+        all.push({
+          id: '',
+          fromWardId: wardId,
+          toWardId: '',
+          updatedAt: new Date().toISOString(),
+        });
+        setWardTransfers(userId, all);
+        refreshWardTransfersUi();
+
+        if (wardTransfersMsg) {
+          wardTransfersMsg.textContent = '追加しました';
+          wardTransfersMsg.classList.remove('error');
+        }
+      });
+    }
+
+    wardTransfersTable?.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLSelectElement)) return;
+      if (!t.classList.contains('transfer-cell')) return;
+
+      const idx = Number(t.getAttribute('data-i'));
+      const key = t.getAttribute('data-k');
+      if (!Number.isFinite(idx) || idx < 0 || !key) return;
+
+      const { userId, wardId } = getActiveUserWard();
+      if (!userId || !wardId) return;
+
+      let patch = {};
+      if (key === 'mode') patch = { mode: t.value };
+      if (key === 'ward') patch = { otherWardId: t.value };
+
+      const res = updateOneTransfer(userId, wardId, idx, patch);
+      if (!res.ok) {
+        if (wardTransfersMsg) {
+          wardTransfersMsg.textContent = res.msg || '保存に失敗しました。';
+          wardTransfersMsg.classList.add('error');
+        }
+        return;
+      }
+
+      refreshWardTransfersUi();
+      if (wardTransfersMsg) {
+        wardTransfersMsg.textContent = '保存しました';
+        wardTransfersMsg.classList.remove('error');
+      }
+    });
+
+    wardTransfersTable?.addEventListener('input', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      if (!t.classList.contains('transfer-cell')) return;
+
+      const idx = Number(t.getAttribute('data-i'));
+      const key = t.getAttribute('data-k');
+      if (!Number.isFinite(idx) || idx < 0 || !key) return;
+
+      if (key !== 'id') return;
+
+      const { userId, wardId } = getActiveUserWard();
+      if (!userId || !wardId) return;
+
+      const res = updateOneTransfer(userId, wardId, idx, { id: (t.value || '').trim() });
+      if (!res.ok) return;
+
+      if (wardTransfersMsg) wardTransfersMsg.textContent = '保存しました';
+    });
+
+    wardTransfersTable?.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const del = t.getAttribute('data-del-transfer');
+      if (del === null) return;
+
+      const idx = Number(del);
+      if (!Number.isFinite(idx) || idx < 0) return;
+
+      const { userId, wardId } = getActiveUserWard();
+      if (!userId || !wardId) return;
+
+      const viewList = getWardTransfersForWard(userId, wardId);
+      const row = viewList[idx];
+      if (!row) return;
+
+      const all = getWardTransfers(userId);
+      const k = `${row.updatedAt}|${row.id}|${row.fromWardId}|${row.toWardId}`;
+      const next = all.filter(x => `${x.updatedAt}|${x.id}|${x.fromWardId}|${x.toWardId}` !== k);
+
+      setWardTransfers(userId, next);
+      refreshWardTransfersUi();
+
+      if (wardTransfersMsg) {
+        wardTransfersMsg.textContent = '削除しました';
+        wardTransfersMsg.classList.remove('error');
+      }
+    });
+  }
+
   function refreshPlanInputsUi() {
     const { plannedAdmissionsMsg, erEstimateMsg, selectErEstimate } = dom();
     const { userId, wardId } = getActiveUserWard();
@@ -119,9 +386,12 @@
     const planned = getPlannedAdmissions(userId, wardId);
     renderPlannedAdmissionsTable(planned);
 
+    refreshWardTransfersUi();
+
     const iso = todayJSTIsoDate();
     const er = getErEstimate(userId, wardId, iso);
     if (selectErEstimate) selectErEstimate.value = er || '';
+
 
     if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '';
     if (erEstimateMsg) erEstimateMsg.textContent = '';
@@ -218,10 +488,15 @@
       renderPlannedAdmissionsTable(list);
       if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '削除しました';
     });
+
+    // 病棟移動（病棟間で共有）
+    ensureWardTransfersUi();
+    initWardTransfersInputs();
   }
 
   function refreshAdmitDaysAllRows() {
     const st = state();
+
     let changed = false;
     const rows = Array.isArray(st.sheetAllRows) ? st.sheetAllRows : [];
 
