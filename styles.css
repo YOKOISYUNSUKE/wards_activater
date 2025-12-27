@@ -248,6 +248,16 @@ h1 { font-size: 18px; margin: 0; }
   box-shadow: none;
 }
 
+/* Nursing Care Level Column (Column 11) - Center Alignment */
+.sheet-table th:nth-child(11), .sheet-table td:nth-child(11) {
+  text-align: center;
+}
+
+.sheet-table td:nth-child(11) .cell {
+  justify-content: center;
+  text-align: center;
+}
+
 /* DPC Colors */
 .sheet-table td:nth-child(6), .sheet-table th:nth-child(6) { background-color: #e8f5e9; }
 .sheet-table td:nth-child(7), .sheet-table th:nth-child(7) { background-color: #fffde7; }

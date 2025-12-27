@@ -37,6 +37,51 @@ function closeDpcPicker() {
     activeDpcPicker = null;
   }
 }
+function getDpcCandidates(keyword, limit = 80) {
+  const master = window.DPC_MASTER;
+  const list = Array.isArray(master?.list) ? master.list : [];
+
+  const q = String(keyword ?? '').trim().toLowerCase();
+  if (!q) return list.slice(0, limit).map(x => ({
+    code: x.code,
+    name: x.name,
+    I: x.I ?? x.i ?? '',
+    II: x.II ?? x.ii ?? '',
+    III: x.III ?? x.iii ?? '',
+  }));
+
+  const scored = [];
+  for (const x of list) {
+    const code = String(x?.code ?? '').trim();
+    const name = String(x?.name ?? '').trim();
+    const codeL = code.toLowerCase();
+    const nameL = name.toLowerCase();
+
+    if (!code && !name) continue;
+
+    let score = 0;
+    if (codeL === q) score += 100;
+    if (codeL.startsWith(q)) score += 60;
+    if (codeL.includes(q)) score += 30;
+    if (nameL.includes(q)) score += 40;
+
+    if (score > 0) {
+      scored.push({
+        score,
+        item: {
+          code,
+          name,
+          I: x.I ?? x.i ?? '',
+          II: x.II ?? x.ii ?? '',
+          III: x.III ?? x.iii ?? '',
+        }
+      });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(s => s.item);
+}
 
 function openDpcPicker(anchorEl, candidates, onPick) {
   closeDpcPicker();
@@ -638,6 +683,7 @@ window.WardFeatures = {
   // DPCピッカー
   openDpcPicker,
   closeDpcPicker,
+  getDpcCandidates,
 
   // ベッドタイプ
   showBedTypeSelector,

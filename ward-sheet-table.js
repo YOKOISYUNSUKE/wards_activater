@@ -359,49 +359,77 @@
       });
     });
 
-    // 看護必要度（クリックで選択）
-    sheetTable.querySelectorAll('.nursing-cell').forEach(cell => {
-      cell.addEventListener('click', () => {
-        const rowIdx = Number(cell.getAttribute('data-idx'));
-        const cur = (cell.textContent ?? '').trim();
-        showNursingSelector(cur, (next) => {
-          cell.textContent = next;
+// 看護必要度（クリックで選択）
+sheetTable.querySelectorAll('.nursing-cell').forEach(cell => {
+  cell.addEventListener('click', () => {
+    const rowIdx = Number(cell.getAttribute('data-idx'));
+    if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
 
-          if (Number.isFinite(rowIdx) && rowIdx >= 0 && st.sheetAllRows?.[rowIdx]) {
-            st.sheetAllRows[rowIdx][COL_NURSING] = next;
-          }
-          persistSheetFromDom('自動保存しました');
-          updateKpiUI();
-        });
-      });
+    // ✅ ward-features.js の想定シグネチャに合わせる
+    showNursingSelector(cell, st.sheetAllRows, st.currentWard, (msg) => {
+      // セレクタ側で sheetAllRows[COL_NURSING] が更新されるので、表示を追随
+      if (st.sheetAllRows?.[rowIdx]) {
+        cell.textContent = String(st.sheetAllRows[rowIdx][COL_NURSING] ?? '').trim();
+      }
+
+      // 表示メッセージ（"保存しました。" 等）
+      if (msg) setSheetMsg(msg);
+
+      updateKpiUI();
     });
+  });
+});
 
-    // DPCピッカー（ダブルクリック）
-    sheetTable.querySelectorAll('.cell[data-c="' + COL_DPC + '"]').forEach(cell => {
-      cell.addEventListener('dblclick', () => {
-        const rowIdx = Number(cell.getAttribute('data-idx'));
-        const cur = (cell.textContent ?? '').trim();
-        openDpcPicker(cur, (code, rec) => {
-          cell.textContent = code;
 
-          if (Number.isFinite(rowIdx) && rowIdx >= 0 && st.sheetAllRows?.[rowIdx]) {
-            st.sheetAllRows[rowIdx][COL_DPC] = code;
-            st.sheetAllRows[rowIdx][COL_DPC_I] = rec?.i || '';
-            st.sheetAllRows[rowIdx][COL_DPC_II] = rec?.ii || '';
-            st.sheetAllRows[rowIdx][COL_DPC_III] = rec?.iii || '';
-          }
+// DPCピッカー（ダブルクリック / Enterで呼び出し）
+sheetTable.querySelectorAll('.cell[data-c="' + COL_DPC + '"]').forEach(cell => {
+  const openByKeyword = () => {
+    const rowIdx = Number(cell.getAttribute('data-idx'));
+    const kw = (cell.textContent ?? '').trim();
 
-          const iEl = sheetTable.querySelector(`.cell[data-idx="${rowIdx}"][data-c="${COL_DPC_I}"]`);
-          const iiEl = sheetTable.querySelector(`.cell[data-idx="${rowIdx}"][data-c="${COL_DPC_II}"]`);
-          const iiiEl = sheetTable.querySelector(`.cell[data-idx="${rowIdx}"][data-c="${COL_DPC_III}"]`);
-          if (iEl) iEl.textContent = rec?.i || '';
-          if (iiEl) iiEl.textContent = rec?.ii || '';
-          if (iiiEl) iiiEl.textContent = rec?.iii || '';
+    const candidates = window.WardFeatures?.getDpcCandidates?.(kw, 80) || [];
+    if (!candidates.length) {
+      setSheetMsg('DPC候補が見つかりませんでした。', true);
+      return;
+    }
 
-          persistSheetFromDom('自動保存しました');
-        });
-      });
+    openDpcPicker(cell, candidates, (picked) => {
+      const code = String(picked?.code ?? '').trim();
+      if (!code) return;
+
+      const master = window.DPC_MASTER;
+      const rec = master?.lookupByCode?.(code) || null;
+
+      cell.textContent = code;
+
+      if (Number.isFinite(rowIdx) && rowIdx >= 0 && st.sheetAllRows?.[rowIdx]) {
+        st.sheetAllRows[rowIdx][COL_DPC] = code;
+
+        st.sheetAllRows[rowIdx][COL_DPC_I] = String(rec?.i ?? picked?.I ?? '').trim();
+        st.sheetAllRows[rowIdx][COL_DPC_II] = String(rec?.ii ?? picked?.II ?? '').trim();
+        st.sheetAllRows[rowIdx][COL_DPC_III] = String(rec?.iii ?? picked?.III ?? '').trim();
+      }
+
+      const iEl = sheetTable.querySelector(`.cell[data-idx="${rowIdx}"][data-c="${COL_DPC_I}"]`);
+      const iiEl = sheetTable.querySelector(`.cell[data-idx="${rowIdx}"][data-c="${COL_DPC_II}"]`);
+      const iiiEl = sheetTable.querySelector(`.cell[data-idx="${rowIdx}"][data-c="${COL_DPC_III}"]`);
+      if (iEl) iEl.textContent = String(rec?.i ?? picked?.I ?? '').trim();
+      if (iiEl) iiEl.textContent = String(rec?.ii ?? picked?.II ?? '').trim();
+      if (iiiEl) iiiEl.textContent = String(rec?.iii ?? picked?.III ?? '').trim();
+
+      persistSheetFromDom('自動保存しました');
     });
+  };
+
+  cell.addEventListener('dblclick', openByKeyword);
+
+  cell.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    openByKeyword();
+  });
+});
+
   }
 
   async function persistSheetFromDom(msgOk) {
