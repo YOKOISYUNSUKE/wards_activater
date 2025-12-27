@@ -1,1079 +1,324 @@
-:root{
-  --bg:#f6f7fb;
-  --card:#ffffff;
-  --text:#111827;
-  --muted:#6b7280;
-  --border:#e5e7eb;
-  --shadow: 0 8px 20px rgba(17,24,39,.06);
-  --primary:#2563eb;
-  --primary-weak:#dbeafe;
-  --danger:#dc2626;
+/* ==========================================================================
+   Variables & Base Styles
+   ========================================================================== */
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --shadow: 0 8px 20px rgba(17, 24, 39, .06);
+  --primary: #2563eb;
+  --primary-weak: #dbeafe;
+  --danger: #dc2626;
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 12px;
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif;
-  color:var(--text);
+  color: var(--text);
   background: radial-gradient(1200px 700px at 20% 0%, #ffffff 0%, var(--bg) 50%, var(--bg) 100%);
 }
 
-.app{
-  min-height:100%;
-  display:flex;
-  flex-direction:column;
+.app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.topbar{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:18px 20px;
-  border-bottom:1px solid var(--border);
-  background:rgba(255,255,255,.8);
+.container {
+  width: min(920px, 92vw);
+  margin: 26px auto;
+  flex: 1;
+}
+
+/* ==========================================================================
+   Layout Components
+   ========================================================================== */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, .8);
   backdrop-filter: blur(6px);
-  position:sticky;
-  top:0;
-}
-
-.brand{ display:flex; gap:12px; align-items:center; }
-.logo{
-  width:44px; height:44px;
-  display:grid; place-items:center;
-  background:var(--primary-weak);
-  border:1px solid var(--border);
-  border-radius:12px;
-  font-size:22px;
-}
-h1{ font-size:18px; margin:0; }
-.subtitle{ margin:2px 0 0; color:var(--muted); font-size:12px; }
-
-.container{
-  width:min(920px, 92vw);
-  margin:26px auto;
-  flex:1;
-}
-
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:18px;
-  box-shadow:var(--shadow);
-  padding:18px;
-}
-
-.card-title{
-  margin:0 0 14px;
-  font-size:16px;
-}
-
-.form{ display:flex; flex-direction:column; gap:12px; }
-.label{ display:flex; flex-direction:column; gap:6px; font-size:13px; color:var(--muted); }
-.input{
-  width:100%;
-  padding:12px 12px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  font-size:14px;
-  outline:none;
-  background:#fff;
-}
-.input:focus{
-  border-color:#93c5fd;
-  box-shadow:0 0 0 4px rgba(59,130,246,.12);
-}
-
-.row{ display:flex; gap:10px; flex-wrap:wrap; }
-
-.btn{
-  border:1px solid var(--border);
-  background:#fff;
-  border-radius:12px;
-  padding:10px 14px;
-  font-size:14px;
-  cursor:pointer;
-  transition:transform .02s ease, box-shadow .15s ease, border-color .15s ease;
-}
-.btn:active{ transform: translateY(1px); }
-.btn:hover{ box-shadow:0 8px 18px rgba(17,24,39,.08); border-color:#d1d5db; }
-
-.btn-primary{
-  background:var(--primary);
-  border-color:var(--primary);
-  color:#fff;
-}
-.btn-outline{
-  border-color:#93c5fd;
-  background:#fff;
-}
-.btn-ghost{
-  background:transparent;
-}
-
-.hint{ margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
-.msg{
-  min-height:20px;
-  font-size:13px;
-  color:var(--muted);
-}
-.msg.error{ color:var(--danger); }
-
-.hidden{ display:none !important; }
-
-.muted{ color:var(--muted); font-size:13px; margin:0 0 12px; }
-
-.grid{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap:12px;
-}
-@media (max-width:720px){
-  .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-@media (max-width:420px){
-  .grid{ grid-template-columns: 1fr; }
-}
-
-.ward{
-  border:1px solid var(--border);
-  background:#fff;
-  border-radius:16px;
-  padding:14px;
-  text-align:left;
-}
-.ward .title{ font-weight:700; margin:0 0 6px; }
-.ward .meta{ margin:0; color:var(--muted); font-size:12px; }
-
-.divider{
-  height:1px;
-  background:var(--border);
-  margin:16px 0;
-}
-
-.details summary{
-  cursor:pointer;
-  color:#1f2937;
-  font-size:13px;
-}
-.footer{
-  padding:18px 20px;
-  color:var(--muted);
-  text-align:center;
-}
-/* ===== Ward Count ===== */
-.wardcount{
-  border:1px solid var(--border);
-  background:#fff;
-  border-radius:16px;
-  padding:14px;
-}
-.wardcount-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:10px;
-}
-.wardcount-title{ margin:0; font-weight:700; }
-.wardcount-sub{ margin:6px 0 0; color:var(--muted); font-size:12px; }
-.wardcount-badge{
-  min-width:44px;
-  height:36px;
-  display:grid;
-  place-items:center;
-  border-radius:999px;
-  border:1px solid var(--border);
-  background:var(--primary-weak);
-  font-weight:800;
-}
-.range{ width:100%; margin-top:12px; }
-.wardcount-actions{ margin-top:10px; display:flex; justify-content:flex-end; }
-
-/* ===== Sheet View ===== */
-.sheet-head{
-  display:flex;
-  align-items:flex-start;
-  gap:12px;
-}
-.sheet-subtitle{
-  margin:0 0 10px;
-  font-size:14px;
-}
-.sheet-toolbar{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin:0 0 10px;
-}
-.table-wrap{
-  border:1px solid var(--border);
-  border-radius:14px;
-  overflow:auto;
-  background:#fff;
-  position: relative;
-  max-height: calc(100vh - 280px); /* 縦スクロール範囲を制限 */
-  overflow-x: auto;
-  overflow-y: auto;
-}
-
-.table-wrap::-webkit-scrollbar {
-  height: 12px;
-  width: 12px;
-}
-
-.table-wrap::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 0 0 14px 0;
-}
-
-.table-wrap::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 6px;
-}
-
-.table-wrap::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* Firefox用 */
-.table-wrap {
-  scrollbar-width: auto;
-  scrollbar-color: #c1c1c1 #f1f1f1;
-}
-/* ===== 日付列：入院日・退院見込み ===== */
-.sheet-table th:nth-child(5),
-.sheet-table td:nth-child(5),  
-.sheet-table th:nth-child(6),
-.sheet-table td:nth-child(6),  
-.sheet-table th:nth-child(7),
-.sheet-table td:nth-child(7),  
-.sheet-table th:nth-child(8),
-.sheet-table td:nth-child(8),
-.sheet-table th:nth-child(9),
-.sheet-table td:nth-child(9),  
-.sheet-table th:nth-child(10),
-.sheet-table td:nth-child(10),  
-.sheet-table th:nth-child(11),
-.sheet-table td:nth-child(11) {
-  text-align: center;
-  white-space: nowrap;
-}
-
-.sheet-table{
-  width:100%;
-  border-collapse:separate;
-  border-spacing:0;
-  min-width:860px;
-}
-.sheet-table th,
-.sheet-table td{
-  border-bottom:1px solid var(--border);
-  border-right:1px solid var(--border);
-  padding:10px;
-  font-size:13px;
-  vertical-align:top;
-  background: #fff; 
-}
-.sheet-table th{
   position: sticky;
   top: 0;
-  z-index: 5; /* ←行データより前面にして“患者IDの行(ヘッダー)”を確実に固定 */
-  background: rgba(255,255,255,.95);
+  z-index: 100;
+}
+
+.brand { display: flex; gap: 12px; align-items: center; }
+.logo {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  background: var(--primary-weak);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 22px;
+}
+
+h1 { font-size: 18px; margin: 0; }
+.subtitle { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+
+.footer {
+  padding: 18px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ==========================================================================
+   Common UI Components (Cards, Buttons, Forms)
+   ========================================================================== */
+/* Card Base */
+.card, .ward, .wardcount, .kpi-box, .occ-box, .plan-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+.card { border-radius: var(--radius-lg); }
+.ward, .wardcount { border-radius: 16px; padding: 14px; }
+.kpi-box, .occ-box, .plan-card { padding: 10px 12px; }
+
+.card-title, .wardcount-title, .plan-title { margin: 0 0 14px; font-size: 16px; font-weight: 700; }
+.wardcount-title, .plan-title { margin: 0; font-size: 13px; font-weight: 900; }
+
+/* Buttons */
+.btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform .02s ease, box-shadow .15s ease, border-color .15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:active { transform: translateY(1px); }
+.btn:hover { box-shadow: 0 8px 18px rgba(17, 24, 39, .08); border-color: #d1d5db; }
+
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-outline { border-color: #93c5fd; background: #fff; }
+.btn-ghost { background: transparent; }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+
+/* Forms */
+.form { display: flex; flex-direction: column; gap: 12px; }
+.label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.input, .plan-cell {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+}
+.input:focus, .plan-cell:focus, .date-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .12);
+}
+.plan-cell { padding: 10px; font-size: 12px; border-radius: 10px; }
+
+/* ==========================================================================
+   Table & Sheet View
+   ========================================================================== */
+.table-wrap, .plan-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  background: #fff;
+  position: relative;
+}
+.table-wrap { max-height: calc(100vh - 280px); }
+
+/* Custom Scrollbar */
+.table-wrap::-webkit-scrollbar { height: 12px; width: 12px; }
+.table-wrap::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 0 0 var(--radius-md) 0; }
+.table-wrap::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 6px; }
+.table-wrap::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+.table-wrap { scrollbar-width: auto; scrollbar-color: #c1c1c1 #f1f1f1; }
+
+.sheet-table, .plan-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.sheet-table { min-width: 860px; }
+.plan-table { min-width: 560px; }
+
+.sheet-table th, .sheet-table td,
+.plan-table th, .plan-table td {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 4px 10px;
+  font-size: 13px;
+  vertical-align: middle;
+  background: #fff;
+}
+.plan-table th, .plan-table td { padding: 8px; font-size: 12px; }
+
+.sheet-table th, .plan-table th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(255, 255, 255, .95);
   backdrop-filter: blur(6px);
   text-align: center;
   font-weight: 800;
   box-shadow: 0 1px 0 var(--border);
-}
-/*  ベッドNo列（1列目）を横固定 */
-.sheet-table th:nth-child(1),
-.sheet-table td:nth-child(1) {
-  position: sticky;
-  left: 0;
-  z-index: 3; /* データ行は3 */
-  text-align: right;
-  padding-right: 14px;
-  background: #fff;
-  box-shadow: 1px 0 0 var(--border); /* 右側に境界線 */
+  white-space: nowrap;
 }
 
-/* ベッドNo列のヘッダーは縦横両方固定 */
-.sheet-table th:nth-child(1) {
-  z-index: 6; /* ヘッダー行は6（通常ヘッダーの5より上） */
-  background: rgba(255,255,255,.95);
-}
-
-/* 患者ID列（2列目）を横固定 */
-.sheet-table th:nth-child(2),
-.sheet-table td:nth-child(2) {
-  position: sticky;
-  left: 80px; /* ベッドNo列の幅分オフセット（調整が必要な場合は変更） */
-  z-index: 3;
-  background: #fff;
+/* Sticky Columns */
+.sheet-table th:nth-child(1), .sheet-table td:nth-child(1) {
+  position: sticky; left: 0; z-index: 3;
+  text-align: right; padding-right: 14px;
   box-shadow: 1px 0 0 var(--border);
-  text-align: center;
-  min-width: 10ch;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
+.sheet-table th:nth-child(1) { z-index: 6; }
 
-
-/* 患者ID列のヘッダーは縦横両方固定 */
-.sheet-table th:nth-child(2) {
-  z-index: 6;
-  background: rgba(255,255,255,.95);
+.sheet-table th:nth-child(2), .sheet-table td:nth-child(2) {
+  position: sticky; left: 80px; z-index: 3;
+  box-shadow: 1px 0 0 var(--border);
+  text-align: center; min-width: 10ch;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
+.sheet-table th:nth-child(2) { z-index: 6; }
 
-
-.sheet-table tr:last-child td{ border-bottom:none; }
-.sheet-table th:last-child,
-.sheet-table td:last-child{ border-right:none; }
-
-.cell{
-  min-height:18px;
-  outline:none;
-  white-space:pre-wrap;
+/* Table Cell Content */
+.sheet-table td .cell, .sheet-table td .patient-id-cell {
+  min-height: 1.2em; line-height: 1.2em; padding: 4px 8px;
+  display: flex; align-items: center;
 }
-.cell:focus{
-  box-shadow:0 0 0 4px rgba(59,130,246,.12);
-  border-radius:8px;
-}
-.sheet-toolbar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-  margin:0 0 10px;
-}
+.cell { outline: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell:focus { box-shadow: 0 0 0 4px rgba(59, 130, 246, .12); border-radius: 8px; }
 
-.sheet-toolbar-left,
-.sheet-toolbar-right{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
+/* Column Specifics */
+.sheet-table th:nth-child(n+5):nth-child(-n+11),
+.sheet-table td:nth-child(n+5):nth-child(-n+11) { text-align: center; white-space: nowrap; }
+.sheet-table td:nth-child(10) .cell { justify-content: center; text-align: center; }
 
-.sheet-toolbar-right .input{
-  min-width: 340px;
-}
-
-/* クリックでソートできるヘッダ */
-.sheet-table th.sortable{
-  cursor:pointer;
-  user-select:none;
-}
-
-.sheet-table th .sort-ind{
-  margin-left:6px;
-  font-size:12px;
-  opacity:.65;
-}
-
-/* ===== DPC 期間 色分け ===== */
-/* 列番号は 0 始まり（ベッドNo=0） */
-
-.sheet-table td:nth-child(6),
-.sheet-table th:nth-child(6) {
-  background-color: #e8f5e9;
-}
-
-.sheet-table td:nth-child(7),
-.sheet-table th:nth-child(7) {
-  background-color: #fffde7;
-}
-
-.sheet-table td:nth-child(8),
-.sheet-table th:nth-child(8) {
-  background-color: #fdecea;
-}
-
-/* 固定列のヘッダーは背景色を維持 */
-.sheet-table th:nth-child(1),
-.sheet-table th:nth-child(2) {
-  background: rgba(255,255,255,.95) !important;
-}
-
-/* ===== KPI 横並び（病棟KPI / 病院全体KPI） ===== */
-.kpi-row-bar{
-  display:flex;
-  gap:12px;
-  flex-wrap:wrap;
-  align-items:stretch;
-  margin: 10px 0 6px;
-}
-
-.kpi-row-bar .kpi-box{
-  flex: 1 1 220px;
-  min-width: 220px;
-}
-
-/* ===== KPI Stack（平均在院日数 / 看護必要度 / 稼働率） ===== */
-.kpi-stack{
-  margin-left:auto;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  min-width: 220px;
-}
-
-/* KPIカード（稼働率occ-boxと視覚を合わせる） */
-.kpi-box{
-  border:1px solid var(--border);
-  background:#fff;
-  border-radius:14px;
-  padding:10px 12px;
-  box-shadow: var(--shadow);
-}
-
-.kpi-title{
-  margin:0 0 6px;
-  font-weight:800;
-  font-size:13px;
-}
-
-.kpi-row{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:10px;
-}
-
-.kpi-num{
-  font-weight:900;
-  font-size:18px;
-}
-
-.kpi-subnum{
-  font-weight:800;
-  font-size:12px;
-  color: var(--muted);
-}
-
-.kpi-sub{
-  margin:6px 0 0;
-  color:var(--muted);
-  font-size:12px;
-}
-
-/* ===== Occupancy (稼働率) ===== */
-.occ-box{
-  margin-left:auto;
-  border:1px solid var(--border);
-  background:#fff;
-  border-radius:14px;
-  padding:10px 12px;
-  min-width: 180px;
-  box-shadow: var(--shadow);
-}
-
-.occ-title{
-  margin:0 0 6px;
-  font-weight:800;
-  font-size:13px;
-}
-
-.occ-row{
-  display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:10px;
-}
-
-.occ-fraction{
-  font-weight:800;
-  font-size:14px;
-}
-
-.occ-percent{
-  font-weight:900;
-  font-size:18px;
-}
-
-.occ-sub{
-  margin:6px 0 0;
-  color:var(--muted);
-  font-size:12px;
-}
-
-
-
-/* ===== DPC候補（オートコンプリート） ===== */
-.dpc-suggest{
-  position: absolute;
-  z-index: 9999;
-  min-width: 320px;
-  max-width: 560px;
-  max-height: 260px;
-  overflow: auto;
-  padding: 6px;
-  border: 1px solid rgba(0,0,0,.12);
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 10px 30px rgba(0,0,0,.12);
-}
-
-.dpc-suggest .item{
-  display:flex;
-  gap:8px;
-  align-items:flex-start;
-  padding:8px 10px;
-  border-radius:10px;
-  cursor:pointer;
-}
-
-.dpc-suggest .item:hover,
-.dpc-suggest .item.active{
-  background: rgba(59,130,246,.10);
-}
-
-.dpc-suggest .code{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 12px;
-  color: rgba(0,0,0,.75);
-  min-width: 132px;
-}
-
-.dpc-suggest .name{
-  font-size: 12px;
-  color: rgba(0,0,0,.85);
-}
-
-.dpc-suggest .meta{
-  margin-left:auto;
-  font-size: 12px;
-  color: rgba(0,0,0,.55);
-  white-space: nowrap;
-}
-
-.dpc-suggest .empty{
-  padding: 10px;
-  color: rgba(0,0,0,.55);
-  font-size: 12px;
-}
-/* ===== ベッドタイプ選択UI ===== */
-.bed-no-cell {
-  cursor: pointer;
-  user-select: none;
-}
-.bed-no-cell:hover {
-  background: var(--primary-weak);
-  border-radius: 6px;
-}
-
-.bed-type-selector {
-  z-index: 9999;
-  min-width: 120px;
-  padding: 6px;
+/* Date Input Styling - Column 9 (Admission Date) */
+.sheet-table td:nth-child(9) input {
   border: 1px solid var(--border);
-  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 10px 30px rgba(0,0,0,.12);
-}
-
-.bed-type-option {
-  padding: 10px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.bed-type-option:hover {
-  background: var(--primary-weak);
-}
-
-.bed-type-num-input {
-  padding: 8px 10px;
-  font-size: 13px;
-}
-
-.bed-type-num-input label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.bed-num-input {
-  width: 60px;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 13px;
-  outline: none;
-}
-
-.bed-num-input:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 2px rgba(59,130,246,.12);
-}
-
-.bed-type-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-.bed-type-clear {
-  color: var(--danger);
-}
-
-.bed-type-clear:hover {
-  background: #fdecea;
-}
-/* ===== 日付入力（カレンダー） ===== */
-.date-input{
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-  text-align: center;
-  outline: none;
-}
-.date-input:focus{
-  box-shadow: 0 0 0 4px rgba(59,130,246,.12);
-  border-radius: 8px;
-}
-/* ===== シート ヘッダー：1行固定 ===== */
-.sheet-table th{
-  white-space: nowrap;
-}
-/* ===== ヘッダー列幅調整 ===== */
-.sheet-table th:nth-child(3){  /* 主病名 */
-  min-width: 120px;
-}
-
-.sheet-table th:nth-child(4){  /* DPCコード */
-  min-width: 100px;
-}
-
-.sheet-table th:nth-child(8),  /* 入院日 */
-.sheet-table th:nth-child(11){ /* 退院見込み */
-  min-width: 110px;
-}
-
-.sheet-table th:nth-child(9){  /* 入院日数 */
-  min-width: 90px;
-}
-
-.sheet-table th:nth-child(10){ /* 看護必要度 */
-  min-width: 110px;
-}
-
-.ward-card{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-
-.ward-actions{
-  display:flex;
-  gap:8px;
-  justify-content:flex-end;
-}
-
-.ward-action-btn{
-  padding:6px 10px;
-  font-size:12px;
-  border-radius:12px;
-}
-
-.ward-action-btn.danger{
-  border-color: rgba(239,68,68,35);
-  color: rgba(185,28,28,100);
-}
-/* ===== 看護必要度 選択UI ===== */
-.nursing-cell{
-  cursor:pointer;
-  user-select:none;
-}
-.nursing-cell:hover{
-  background: var(--primary-weak);
-  border-radius: 6px;
-}
-
-.nursing-selector{
-  z-index: 9999;
-  min-width: 360px;
-  max-width: 520px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 10px 30px rgba(0,0,0,12);
-}
-
-.nursing-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:10px;
-}
-
-.nursing-title{
-  font-weight:800;
-  font-size:13px;
-}
-
-.nursing-close{
-  border:1px solid var(--border);
-  background:#fff;
-  border-radius:10px;
-  padding:6px 10px;
-  cursor:pointer;
-}
-
-.nursing-body{
-  display:grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap:10px;
-  max-height: 320px;
-  overflow:auto;
-  padding-right:4px;
-}
-
-.nursing-cat{
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px;
-}
-
-.nursing-cat-title{
-  font-weight:800;
-  margin:0 0 8px;
-  font-size:12px;
-  color: rgba(0,0,0,75);
-}
-
-.nursing-item{
-  display:flex;
-  gap:8px;
-  align-items:flex-start;
-  font-size:12px;
-  margin:6px 0;
-  cursor:pointer;
-}
-
-.nursing-actions{
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-  margin-top:10px;
-}
-/* ===== 看護必要度セル：行高を他列と統一 ===== */
-.sheet-table td:nth-child(11) .nursing-cell {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  min-height: unset;     /* ← 削除 */
-  display: inline-block; /* ← block をやめる */
-  line-height: 1.4;      /* ← 他セルと視覚的に一致 */
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace;
-  font-size: 12px;
-}
-
-/* ===== 退院候補日モーダル ===== */
-.discharge-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.4);
-  z-index: 9998;
-  display: grid;
-  place-items: center;
-}
-
-.discharge-modal {
-  background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0,0,0,.2);
-  width: min(600px, 90vw);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.discharge-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-}
-
-.discharge-modal-header h3 {
-  margin: 0;
-  font-size: 15px;
-}
-
-.discharge-modal-close {
-  border: none;
-  background: transparent;
-  font-size: 20px;
-  cursor: pointer;
   padding: 4px 8px;
-}
-
-.discharge-modal-content {
-  padding: 14px 18px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.discharge-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-
-.discharge-card-header {
-  display: flex;
-  gap: 12px;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.discharge-card-header .patient-id {
-  font-weight: 800;
-  font-size: 14px;
-}
-
-.discharge-card-header .dpc-code {
-  font-size: 12px;
-  color: var(--muted);
-  font-family: monospace;
-}
-
-.discharge-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.discharge-candidate {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: #f9fafb;
-  font-size: 12px;
-}
-
-.discharge-candidate.clickable {
-  cursor: pointer;
-  transition: background .15s ease;
-}
-
-.discharge-candidate.clickable:hover {
-  background: var(--primary-weak);
-}
-
-.discharge-candidate.best {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-}
-
-.discharge-candidate.best.clickable:hover {
-  background: #d1fae5;
-}
-
-.discharge-candidate .rank {
-  font-size: 14px;
-}
-
-.discharge-candidate .date {
-  font-weight: 700;
-}
-
-.discharge-candidate .score {
-  color: var(--muted);
-}
-
-.discharge-candidate .detail {
-  margin-left: auto;
-  color: var(--muted);
-}
-
-.discharge-rationale {
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: #fffbeb;
-  border-radius: 8px;
-  font-size: 12px;
-  color: #92400e;
-}
-/* ===== 固定 横スクロールバー（患者表用） ===== */
-.fixed-hscroll {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-
-  height: 16px;
-  overflow-x: auto;
-  overflow-y: hidden;
-
-  background: rgba(255,255,255,.92);
-  border-top: 1px solid var(--border);
-  backdrop-filter: blur(6px);
-
-  z-index: 9997; /* モーダル(9998)より下、通常UIより上 */
-}
-
-.fixed-hscroll.hidden {
-  display: none;
-}
-
-/* スクロール用の“幅だけ持つ”中身 */
-.fixed-hscroll .fixed-hscroll-inner {
-  height: 1px;
-}
-
-/* 固定バー分、下が隠れないように余白（sheetView表示中のみJSで付与） */
-body.has-hscroll {
-  padding-bottom: 18px;
-}
-/* ===== 予定入院 / 推定緊急入院 ===== */
-.plan-wrap{
-  display:block;
-}
-
-.plan-grid{
-  display:grid;
-  grid-template-columns: 1.4fr 0.8fr;
-  gap:12px;
-}
-
-@media (max-width: 860px){
-  .plan-grid{ grid-template-columns: 1fr; }
-}
-
-.plan-card{
-  border:1px solid var(--border);
-  background:#fff;
-  border-radius:14px;
-  padding:12px;
-  box-shadow: var(--shadow);
-}
-
-.plan-card-head{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
-}
-
-.plan-title{
-  margin:0;
-  font-weight:900;
-  font-size:13px;
-}
-
-.plan-sub{
-  margin:4px 0 0;
-  color:var(--muted);
-  font-size:12px;
-}
-
-.plan-btn{
-  padding:8px 10px;
-  font-size:12px;
-  border-radius:12px;
-  white-space:nowrap;
-}
-
-.plan-table-wrap{
-  border:1px solid var(--border);
-  border-radius:12px;
-  overflow:auto;
-  background:#fff;
-}
-
-.plan-table{
-  width:100%;
-  border-collapse:separate;
-  border-spacing:0;
-  min-width: 560px;
-}
-
-.plan-table th,
-.plan-table td{
-  border-bottom:1px solid var(--border);
-  border-right:1px solid var(--border);
-  padding:8px;
-  font-size:12px;
-  vertical-align:top;
-  background:#fff;
-}
-
-.plan-table th{
-  background: rgba(255,255,255,.95);
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  text-align:center;
-  font-weight:800;
-  white-space: nowrap;
-}
-
-.plan-cell{
-  width:100%;
-  min-width: 8ch;
-  padding:10px 10px;
-  border:1px solid var(--border);
-  border-radius:10px;
-  font-size:12px;
-  outline:none;
-  background:#fff;
-}
-
-.plan-er{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-
-.plan-er-hint{
-  color:var(--muted);
-  font-size:12px;
-}
-/* ===== 患者ID：ドラッグ＆ドロップで入れ替え ===== */
-.patient-id-cell{
-  cursor: grab;
-}
-
-.patient-id-cell:active{
-  cursor: grabbing;
-}
-
-.patient-id-cell.dragging{
-  opacity: .55;
-}
-
-.patient-id-cell.drag-over{
-  outline: 2px dashed rgba(37,99,235,.55);
-  outline-offset: 2px;
-  border-radius: 8px;
-  background: rgba(219,234,254,.55);
-}
-.sheet-table td .cell,
-.sheet-table td .patient-id-cell {
-  min-height: 36px;
-  line-height: 24px;
-  padding: 6px 8px;
-  box-sizing: border-box;
-
-  display: flex;
-  align-items: center;
-}
-/* ===== 入院日数（10列目）だけ中央揃えを強制 ===== */
-.sheet-table td:nth-child(10) .cell{
-  justify-content: center;
+  margin: 0;
+  box-shadow: none;
+  width: 100%;
   text-align: center;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+  border-radius: 4px;
 }
 
+.sheet-table td:nth-child(9) input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .12);
+}
 
+/* Date Input Styling - Column 10 (Discharge Date) */
+.sheet-table td:nth-child(10) input {
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  margin: 0;
+  box-shadow: none;
+  width: 100%;
+  text-align: center;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.sheet-table td:nth-child(10) input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* DPC Colors */
+.sheet-table td:nth-child(6), .sheet-table th:nth-child(6) { background-color: #e8f5e9; }
+.sheet-table td:nth-child(7), .sheet-table th:nth-child(7) { background-color: #fffde7; }
+.sheet-table td:nth-child(8), .sheet-table th:nth-child(8) { background-color: #fdecea; }
+.sheet-table th:nth-child(1), .sheet-table th:nth-child(2) { background: rgba(255, 255, 255, .95) !important; }
+
+/* ==========================================================================
+   Specific Modules
+   ========================================================================== */
+/* Toolbar */
+.sheet-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin: 0 0 10px;
+}
+.sheet-toolbar-left, .sheet-toolbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sheet-toolbar-right .input { min-width: 340px; }
+
+/* KPI & Occupancy */
+.kpi-row-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin: 10px 0 6px; }
+.kpi-row-bar .kpi-box { flex: 1 1 220px; min-width: 220px; }
+.kpi-stack { margin-left: auto; display: flex; flex-direction: column; gap: 10px; min-width: 220px; }
+.kpi-title, .occ-title { margin: 0 0 6px; font-weight: 800; font-size: 13px; }
+.kpi-row, .occ-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.kpi-num, .occ-percent { font-weight: 900; font-size: 18px; }
+.kpi-subnum { font-weight: 800; font-size: 12px; color: var(--muted); }
+.kpi-sub, .occ-sub { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.occ-box { margin-left: auto; min-width: 180px; }
+.occ-fraction { font-weight: 800; font-size: 14px; }
+
+/* DPC Suggest & Selectors */
+.dpc-suggest, .bed-type-selector, .nursing-selector {
+  position: absolute; z-index: 9999; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .12); padding: 6px;
+}
+.dpc-suggest { min-width: 320px; max-width: 560px; max-height: 260px; overflow: auto; }
+.nursing-selector { min-width: 360px; max-width: 520px; padding: 10px; border-radius: var(--radius-md); }
+
+.dpc-suggest .item, .bed-type-option { padding: 8px 10px; border-radius: 10px; cursor: pointer; display: flex; gap: 8px; }
+.dpc-suggest .item:hover, .dpc-suggest .item.active, .bed-type-option:hover { background: var(--primary-weak); }
+
+/* Modals */
+.discharge-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .4);
+  z-index: 9998; display: grid; place-items: center;
+}
+.discharge-modal {
+  background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, .2);
+  width: min(600px, 90vw); max-height: 80vh; display: flex; flex-direction: column;
+}
+.discharge-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.discharge-modal-content { padding: 14px 18px; overflow-y: auto; flex: 1; }
+
+/* ==========================================================================
+   Utilities & Helpers
+   ========================================================================== */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
+
+.hidden { display: none !important; }
+.divider, .bed-type-divider { height: 1px; background: var(--border); margin: 16px 0; }
+.bed-type-divider { margin: 4px 0; }
+
+.text-danger { color: var(--danger); }
+.text-muted { color: var(--muted); }
+
+/* Fixed Horizontal Scroll */
+.fixed-hscroll {
+  position: fixed; left: 0; right: 0; bottom: 0; height: 16px;
+  overflow-x: auto; overflow-y: hidden; background: rgba(255, 255, 255, .92);
+  border-top: 1px solid var(--border); backdrop-filter: blur(6px); z-index: 9997;
+}
+body.has-hscroll { padding-bottom: 18px; }
