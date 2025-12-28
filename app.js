@@ -288,9 +288,14 @@ async function render(afterSync = false) {
     WardCore.setSession?.({ userId: uid, loginId: emailForDisplay(email) });
   } catch { }
 
-  if (sheetView?.classList.contains('hidden')) {
-    wardView?.classList.remove('hidden');
-  }
+// 同期完了後のみ病棟選択画面を表示
+if (afterSync) {
+  wardView?.classList.remove('hidden');
+} else {
+  wardView?.classList.add('hidden');
+  sheetView?.classList.add('hidden');
+}
+
 
   // 🔑 同期完了後のみ「病棟一覧の描画」を実行（同期前描画を防ぐ）
   if (afterSync) {
