@@ -242,13 +242,23 @@ function ensureWardTransfersUi() {
     const row = viewList[idx];
     if (!row) return { ok: false, msg: '対象行が見つかりません。' };
 
-    const all = getWardTransfers(userId);
+const all = getWardTransfers(userId);
 
-    const k = `${row.updatedAt}|${row.id}|${row.fromWardId}|${row.toWardId}`;
-    const pos = all.findIndex(x => `${x.updatedAt}|${x.id}|${x.fromWardId}|${x.toWardId}` === k);
-    if (pos < 0) return { ok: false, msg: '保存対象が見つかりません。再読み込みしてください。' };
+let pos = -1;
 
-    const next = { ...all[pos], ...patch };
+if (row._key) {
+  pos = all.findIndex(x => x._key === row._key);
+}
+
+if (pos < 0) {
+  const k = `${row.updatedAt}|${row.id}|${row.fromWardId}|${row.toWardId}`;
+  pos = all.findIndex(x => `${x.updatedAt}|${x.id}|${x.fromWardId}|${x.toWardId}` === k);
+}
+
+if (pos < 0) return { ok: false, msg: '保存対象が見つかりません。再読み込みしてください。' };
+
+const next = { ...all[pos], ...patch };
+
 
     if (patch.mode || patch.otherWardId || patch.id !== undefined) {
       const mode = patch.mode || (next.fromWardId === wardId ? 'to' : 'from');
@@ -370,12 +380,20 @@ function ensureWardTransfersUi() {
       const row = viewList[idx];
       if (!row) return;
 
-      const all = getWardTransfers(userId);
-      const k = `${row.updatedAt}|${row.id}|${row.fromWardId}|${row.toWardId}`;
-      const next = all.filter(x => `${x.updatedAt}|${x.id}|${x.fromWardId}|${x.toWardId}` !== k);
+const all = getWardTransfers(userId);
 
-      setWardTransfers(userId, next);
-      refreshWardTransfersUi();
+let next = all;
+
+if (row._key) {
+  next = all.filter(x => x._key !== row._key);
+} else {
+  const k = `${row.updatedAt}|${row.id}|${row.fromWardId}|${row.toWardId}`;
+  next = all.filter(x => `${x.updatedAt}|${x.id}|${x.fromWardId}|${x.toWardId}` !== k);
+}
+
+setWardTransfers(userId, next);
+refreshWardTransfersUi();
+
 
       if (wardTransfersMsg) {
         wardTransfersMsg.textContent = '削除しました';

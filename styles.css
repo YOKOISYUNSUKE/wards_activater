@@ -387,4 +387,30 @@ body.has-hscroll { padding-bottom: 18px; }
 }
 
 /* ゴーストはJS内でインラインスタイル設定済み */
+/* === FIX: 縦スクロール復活（病棟編集/シート表） === */
+
+/* 横スクロール固定バー表示時も、縦スクロールは殺さない */
+body.has-hscroll {
+  overflow-y: auto;   /* もし overflow:hidden があった場合の上書き */
+}
+
+/* 画面下の固定横スクロールバー分だけ余白を確保（高さは実装に合わせて調整可） */
+body.has-hscroll {
+  padding-bottom: 56px;
+}
+
+/* 表ラッパーは縦スクロール可能にする */
+#sheetView .table-wrap {
+  overflow: auto;         /* 縦・横どちらも必要なら auto が安全 */
+  max-height: 70vh;       /* 目安。ヘッダ/KPIが増減しても崩れにくい */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* flex配下でスクロール領域が潰れるのを防ぐ（必要になりやすい） */
+#sheetView,
+#sheetView .card,
+#sheetView .table-wrap {
+  min-height: 0;
+}
+
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'bm-cache-v1';
+const CACHE_NAME = 'bm-cache-v1.1';
 const ASSETS = [
   './',
   './index.html',
@@ -23,8 +23,8 @@ const ASSETS = [
   './app.js',
 
   './manifest.webmanifest',
-  './assets/icon-192.png',
-  './assets/icon-512.png'
+  './icons/192.png',
+  './icons/512.png'
 ];
 
 // install: 事前キャッシュ
