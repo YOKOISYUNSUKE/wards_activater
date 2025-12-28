@@ -356,5 +356,35 @@ body.has-hscroll { padding-bottom: 18px; }
     grid-template-columns: 1fr;
   }
 }
+/* ========================================================================
+   Drag & Drop Styles for Patient ID Cell
+   ======================================================================== */
 
+/* ドラッグ中のソースセル */
+.patient-id-cell.dragging {
+  opacity: 0.4;
+  background: #dbeafe !important;
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+}
+
+/* ドロップ先候補セル */
+.patient-id-cell.drag-over {
+  background: #bfdbfe !important;
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+}
+
+/* ドラッグ可能を示すカーソル（ホバー時） */
+.patient-id-cell {
+  cursor: grab;
+  transition: background 0.15s ease, outline 0.15s ease;
+}
+
+.patient-id-cell:active {
+  cursor: grabbing;
+}
+
+/* ゴーストはJS内でインラインスタイル設定済み */
 

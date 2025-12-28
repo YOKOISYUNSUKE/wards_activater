@@ -23,13 +23,14 @@
     setSheetRows,
   } = window.WardCore;
 
-  const PATIENT_SWAP_DRAG_ARM_MS = 140;
-  const PATIENT_SWAP_DRAG_THRESHOLD_PX = 8;
+  const PATIENT_SWAP_DRAG_ARM_MS = 200;       // ドラッグ開始までの長押し時間
+  const PATIENT_SWAP_DRAG_THRESHOLD_PX = 6;   // ドラッグ判定の移動閾値
 
-  // 患者ID：ポインターベースのドラッグ（HTML5 DnD は contenteditable と相性が悪い環境があるため）
+  // 患者ID：ポインターベースのドラッグ状態
   const patientSwapDragState = {
     active: false,
     armed: false,
+    dragging: false,
     pointerId: null,
     srcRowIdx: null,
     startX: 0,
@@ -47,6 +48,7 @@
     }
     patientSwapDragState.active = false;
     patientSwapDragState.armed = false;
+    patientSwapDragState.dragging = false;
     patientSwapDragState.pointerId = null;
     patientSwapDragState.srcRowIdx = null;
     patientSwapDragState.startX = 0;
@@ -82,6 +84,7 @@
   }
 
   function startPatientSwapDrag(srcEl, pointerId, clientX, clientY) {
+    patientSwapDragState.dragging = true;
     patientSwapDragState.prevBodyUserSelect = document.body.style.userSelect || '';
     document.body.style.userSelect = 'none';
 
@@ -96,11 +99,12 @@
       z-index: 9999;
       background: #3b82f6;
       color: #fff;
-      padding: 4px 10px;
-      border-radius: 4px;
+      padding: 6px 12px;
+      border-radius: 6px;
       font-size: 13px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      opacity: 0.9;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      opacity: 0.95;
       white-space: nowrap;
     `;
     document.body.appendChild(ghost);
@@ -108,6 +112,7 @@
 
     updatePatientSwapGhostPos(ghost, clientX, clientY);
 
+    // ドラッグ開始後にポインターキャプチャ
     try {
       srcEl.setPointerCapture(pointerId);
     } catch (e) {
@@ -204,7 +209,7 @@
       if (el.dataset.patientSwapBound === '1') return;
       el.dataset.patientSwapBound = '1';
 
-      // contenteditable と HTML5 DnD の組み合わせが不安定な環境があるため、ネイティブDnDを抑止
+      // ネイティブDnDを抑止
       el.addEventListener('dragstart', (e) => e.preventDefault());
 
       el.addEventListener('pointerdown', (e) => {
@@ -215,15 +220,10 @@
         if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
         if (patientSwapDragState.active) return;
 
-        // 即座にポインターキャプチャ（contenteditableとの競合防止）
-        try {
-          el.setPointerCapture(e.pointerId);
-        } catch (err) {
-          // 一部環境では非対応
-        }
-
+        // ★ 即座にキャプチャしない（クリック編集との競合防止）
         patientSwapDragState.active = true;
         patientSwapDragState.armed = false;
+        patientSwapDragState.dragging = false;
         patientSwapDragState.pointerId = e.pointerId;
         patientSwapDragState.srcRowIdx = rowIdx;
         patientSwapDragState.startX = e.clientX;
@@ -239,17 +239,29 @@
           if (!('pointerId' in ev)) return;
           if (!patientSwapDragState.active) return;
           if (ev.pointerId !== patientSwapDragState.pointerId) return;
-          if (!patientSwapDragState.armed) return;
 
           const dx = ev.clientX - patientSwapDragState.startX;
           const dy = ev.clientY - patientSwapDragState.startY;
           const moved2 = dx * dx + dy * dy;
+          const thr2 = PATIENT_SWAP_DRAG_THRESHOLD_PX * PATIENT_SWAP_DRAG_THRESHOLD_PX;
 
-          if (!patientSwapDragState.ghostEl) {
-            const thr2 = PATIENT_SWAP_DRAG_THRESHOLD_PX * PATIENT_SWAP_DRAG_THRESHOLD_PX;
-            if (moved2 < thr2) return;
+          // アーム前に閾値を超えた移動 → ドラッグ意図なしとみなしキャンセル
+          if (!patientSwapDragState.armed && moved2 >= thr2) {
+            window.removeEventListener('pointermove', onPointerMove, { passive: false });
+            window.removeEventListener('pointerup', onPointerUp, true);
+            window.removeEventListener('pointercancel', onPointerUp, true);
+            resetPatientSwapDragState();
+            return;
+          }
+
+          if (!patientSwapDragState.armed) return;
+
+          // ドラッグ開始
+          if (!patientSwapDragState.dragging && moved2 >= thr2) {
             startPatientSwapDrag(el, ev.pointerId, ev.clientX, ev.clientY);
           }
+
+          if (!patientSwapDragState.dragging) return;
 
           ev.preventDefault();
           updatePatientSwapGhostPos(patientSwapDragState.ghostEl, ev.clientX, ev.clientY);
@@ -274,7 +286,7 @@
           }
 
           const dstEl = patientSwapDragState.overEl;
-          const wasDragging = !!patientSwapDragState.ghostEl;
+          const wasDragging = patientSwapDragState.dragging;
 
           stopPatientSwapDragVisuals();
 

@@ -179,7 +179,7 @@ if (c === COL_BED_NO) {
                       draggable="false"
                       data-idx="${it.idx}"
                       data-c="${c}"
-                      title="患者IDを長押し→ドラッグ＆ドロップで、他の患者と入れ替えできます（ベッドNoは固定）"
+                      title="長押し→ドラッグで他の患者と入れ替え（ベッドNoは固定）"
                     >${escapeHtml(cell)}</div>
                   </td>
                 `;
@@ -209,6 +209,17 @@ if (c === COL_BED_NO) {
     if (!sheetTable) return;
 
     const st = state();
+
+    // ★ 患者IDセルのドラッグ＆ドロップをバインド
+    if (window.WardDnD?.bindPatientSwap) {
+      window.WardDnD.bindPatientSwap(sheetTable, {
+        getRows: () => st.sheetAllRows,
+        getWard: () => st.currentWard,
+        setMsg: (text, isError) => setSheetMsg(text, isError),
+        applySearchAndSort,
+        updateKpiUI,
+      });
+    }
 
     // ソートイベント
     sheetTable.querySelectorAll('th.sortable').forEach(th => {
