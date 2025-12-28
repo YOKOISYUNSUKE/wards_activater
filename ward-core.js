@@ -15,6 +15,25 @@ const KEY_PLANNED_ADMISSIONS_PREFIX = 'bm_planned_admissions_v1';
 const KEY_ER_ESTIMATE_PREFIX = 'bm_er_estimate_v1';
 const KEY_WARD_TRANSFERS_PREFIX = 'bm_ward_transfers_v1';
 
+// ===== Session =====
+// Supabase移行後も、既存UI（病棟一覧/病棟シート）が bm_session_v1 を参照するため保持する
+function setSession(session) {
+  if (!session) return;
+  const userId = String(session.userId || '').trim();
+  if (!userId) return;
+  const loginId = String(session.loginId || '').trim();
+  saveObj(KEY_SESSION, {
+    userId,
+    loginId,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function clearSession() {
+  localStorage.removeItem(KEY_SESSION);
+}
+
+
 // ===== Cloud（Supabase）=====
 const CLOUD_TABLE_USER_STATE = 'bm_user_state';
 const CLOUD_TABLE_WARD_STATE = 'bm_ward_state';
@@ -141,6 +160,7 @@ async function cloudDownloadWardStates(uid) {
 }
 
 
+// ward-core.js 行 100-108 付近
 async function cloudSyncDownAll() {
   const uid = await cloudUid();
   if (!uid) return;
@@ -152,12 +172,11 @@ async function cloudSyncDownAll() {
   }
 
   const wards = await cloudDownloadWardStates(uid);
-  wards.forEach((row) => {
-    if (!row?.ward_id) return;
+  for (const row of wards) {
+    if (!row?.ward_id) continue;
 
     if (row.data?.sheetRows) {
-      const key = makeSheetKey(uid, row.ward_id);
-      // ここは後で setSheetRows(uid, row.ward_id, row.data.sheetRows) に置換すると安全
+      await setSheetRows(uid, row.ward_id, row.data.sheetRows);
     }
 
     if (row.data?.plannedAdmissions) {
@@ -170,7 +189,7 @@ async function cloudSyncDownAll() {
         localStorage.setItem(k, String(v));
       });
     }
-  });
+  }
 }
 
 
@@ -627,6 +646,8 @@ window.WardCore = {
 
   // ユーティリティ
   loadSession,
+  setSession,
+  clearSession,
   escapeHtml,
   todayJSTIsoDate,
   calcAdmitDays,

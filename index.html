@@ -70,35 +70,9 @@
 
 <h3 class="sheet-subtitle" style="margin-top:10px;">病院全体KPI（全病棟合算）</h3>
 
-<div class="kpi-row-bar" aria-label="病院全体KPI">
-  <div class="kpi-box">
-    <p class="kpi-title">平均在院日数</p>
-    <div class="kpi-row">
-      <span id="hospitalLosInpatients" class="kpi-subnum">-名</span>
-      <span id="hospitalLosAvg" class="kpi-num">-日</span>
-    </div>
-    <p class="kpi-sub">入院患者のみ</p>
-  </div>
-
-  <div class="kpi-box">
-<p class="kpi-title">看護必要度</p>
-<div class="kpi-row">
-  <span id="hospitalNursingAvgAbc" class="kpi-subnum">-/-(3ヶ月)</span>
-  <span id="hospitalNursingAvg" class="kpi-num">-%</span>
-</div>
-<p class="kpi-sub">①②③該当/延べ入院患者</p>
-  </div>
-
-  <div class="kpi-box">
-    <p class="kpi-title">稼働率</p>
-    <div class="kpi-row">
-      <span id="hospitalOccFraction" class="kpi-subnum">0/0</span>
-      <span id="hospitalOccPercent" class="kpi-num">0%</span>
-    </div>
-    <p class="kpi-sub">入院人数/病床数</p>
-  </div>
-</div>
-
+<!-- 病棟数選択とKPIカードを横並びにするラッパー -->
+<div class="top-info-wrapper">
+  <!-- 病棟数選択カード -->
   <div class="wardcount">
     <div class="wardcount-head">
       <div>
@@ -112,6 +86,39 @@
       <button id="btnAddWard" class="btn btn-outline" type="button">＋ 病棟を追加</button>
     </div>
   </div>
+
+  <!-- KPIカード群 -->
+  <div class="kpi-group">
+    <div class="kpi-row-bar" aria-label="病院全体KPI">
+      <div class="kpi-box">
+        <p class="kpi-title">平均在院日数</p>
+        <div class="kpi-row">
+          <span id="hospitalLosInpatients" class="kpi-subnum">-名</span>
+          <span id="hospitalLosAvg" class="kpi-num">-日</span>
+        </div>
+        <p class="kpi-sub">入院患者のみ</p>
+      </div>
+
+      <div class="kpi-box">
+        <p class="kpi-title">看護必要度</p>
+        <div class="kpi-row">
+          <span id="hospitalNursingAvgAbc" class="kpi-subnum">-/-(3ヶ月)</span>
+          <span id="hospitalNursingAvg" class="kpi-num">-%</span>
+        </div>
+        <p class="kpi-sub">①②③該当/延べ入院患者</p>
+      </div>
+
+      <div class="kpi-box">
+        <p class="kpi-title">稼働率</p>
+        <div class="kpi-row">
+          <span id="hospitalOccFraction" class="kpi-subnum">0/0</span>
+          <span id="hospitalOccPercent" class="kpi-num">0%</span>
+        </div>
+        <p class="kpi-sub">入院人数/病床数</p>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 

@@ -414,3 +414,69 @@ body.has-hscroll {
 }
 
 
+/* ==========================================================================
+   病棟選択画面：「病棟数選択」と「KPIカード」を横並びに配置
+   ========================================================================== */
+
+/* 「病棟数選択」と「KPIカード群」を横並びにするラッパー */
+.top-info-wrapper {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* 病棟数選択カードの幅を調整 */
+.top-info-wrapper .wardcount {
+  flex: 0 1 280px;
+  min-width: 260px;
+}
+
+/* KPIカード群のラッパー */
+.kpi-group {
+  flex: 1 1 600px;
+  min-width: 500px;
+}
+
+/* KPIカード群内のkpi-row-barの調整 */
+.kpi-group .kpi-row-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  margin: 0;
+  height: 100%;
+}
+
+.kpi-group .kpi-row-bar .kpi-box {
+  flex: 1 1 160px;
+  min-width: 150px;
+}
+
+/* レスポンシブ対応：画面幅が920px以下で縦積みに変更 */
+@media (max-width: 920px) {
+  .top-info-wrapper {
+    flex-direction: column;
+  }
+
+  .kpi-group {
+    min-width: 100%;
+  }
+
+  .kpi-group .kpi-row-bar {
+    flex-direction: row;
+  }
+}
+
+/* 画面幅が640px以下でKPIカードも縦積みに */
+@media (max-width: 640px) {
+  .kpi-group .kpi-row-bar {
+    flex-direction: column;
+  }
+
+  .kpi-group .kpi-row-bar .kpi-box {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+}
