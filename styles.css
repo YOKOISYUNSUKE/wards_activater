@@ -1,0 +1,390 @@
+/* ==========================================================================
+   Variables & Base Styles
+   ========================================================================== */
+:root {
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --shadow: 0 8px 20px rgba(17, 24, 39, .06);
+  --primary: #2563eb;
+  --primary-weak: #dbeafe;
+  --danger: #dc2626;
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --radius-sm: 12px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif;
+  color: var(--text);
+  background: radial-gradient(1200px 700px at 20% 0%, #ffffff 0%, var(--bg) 50%, var(--bg) 100%);
+}
+
+.app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  width: min(920px, 92vw);
+  margin: 26px auto;
+  flex: 1;
+}
+
+/* ==========================================================================
+   Layout Components
+   ========================================================================== */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, .8);
+  backdrop-filter: blur(6px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand { display: flex; gap: 12px; align-items: center; }
+.logo {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  background: var(--primary-weak);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 22px;
+}
+
+h1 { font-size: 18px; margin: 0; }
+.subtitle { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+
+.footer {
+  padding: 18px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ==========================================================================
+   Common UI Components (Cards, Buttons, Forms)
+   ========================================================================== */
+/* Card Base */
+.card, .ward, .wardcount, .kpi-box, .occ-box, .plan-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+.card { border-radius: var(--radius-lg); }
+.ward, .wardcount { border-radius: 16px; padding: 14px; }
+.kpi-box, .occ-box, .plan-card { padding: 10px 12px; }
+
+.card-title, .wardcount-title, .plan-title { margin: 0 0 14px; font-size: 16px; font-weight: 700; }
+.wardcount-title, .plan-title { margin: 0; font-size: 13px; font-weight: 900; }
+
+/* Buttons */
+.btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform .02s ease, box-shadow .15s ease, border-color .15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:active { transform: translateY(1px); }
+.btn:hover { box-shadow: 0 8px 18px rgba(17, 24, 39, .08); border-color: #d1d5db; }
+
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-outline { border-color: #93c5fd; background: #fff; }
+.btn-ghost { background: transparent; }
+.btn-sm { padding: 6px 10px; font-size: 12px; }
+
+/* Forms */
+.form { display: flex; flex-direction: column; gap: 12px; }
+.label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.input, .plan-cell {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+}
+.input:focus, .plan-cell:focus, .date-input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .12);
+}
+.plan-cell, .transfer-cell { padding: 10px; font-size: 12px; border-radius: 10px; }
+
+.error { color: var(--danger); }
+
+/* ==========================================================================
+   Table & Sheet View
+   ========================================================================== */
+.table-wrap, .plan-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  background: #fff;
+  position: relative;
+}
+.table-wrap { max-height: calc(100vh - 280px); }
+
+/* Custom Scrollbar */
+.table-wrap::-webkit-scrollbar { height: 12px; width: 12px; }
+.table-wrap::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 0 0 var(--radius-md) 0; }
+.table-wrap::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 6px; }
+.table-wrap::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+.table-wrap { scrollbar-width: auto; scrollbar-color: #c1c1c1 #f1f1f1; }
+
+.sheet-table, .plan-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.sheet-table { min-width: 860px; }
+.plan-table { min-width: 560px; }
+
+.sheet-table th, .sheet-table td,
+.plan-table th, .plan-table td {
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 4px 10px;
+  font-size: 13px;
+  vertical-align: middle;
+  background: #fff;
+}
+.plan-table th, .plan-table td { padding: 8px; font-size: 12px; }
+
+.sheet-table th, .plan-table th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(255, 255, 255, .95);
+  backdrop-filter: blur(6px);
+  text-align: center;
+  font-weight: 800;
+  box-shadow: 0 1px 0 var(--border);
+  white-space: nowrap;
+}
+
+/* Sticky Columns */
+.sheet-table th:nth-child(1), .sheet-table td:nth-child(1) {
+  position: sticky; left: 0; z-index: 3;
+  text-align: right; padding-right: 14px;
+  box-shadow: 1px 0 0 var(--border);
+}
+.sheet-table th:nth-child(1) { z-index: 6; }
+
+.sheet-table th:nth-child(2), .sheet-table td:nth-child(2) {
+  position: sticky; left: 80px; z-index: 3;
+  box-shadow: 1px 0 0 var(--border);
+  text-align: center; min-width: 10ch;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.sheet-table th:nth-child(2) { z-index: 6; }
+
+/* Table Cell Content */
+.sheet-table td .cell, .sheet-table td .patient-id-cell {
+  min-height: 1.2em; line-height: 1.2em; padding: 4px 8px;
+  display: flex; align-items: center;
+}
+.cell { outline: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell:focus { box-shadow: 0 0 0 4px rgba(59, 130, 246, .12); border-radius: 8px; }
+
+/* Column Specifics */
+.sheet-table th:nth-child(n+5):nth-child(-n+11),
+.sheet-table td:nth-child(n+5):nth-child(-n+11) { text-align: center; white-space: nowrap; }
+.sheet-table td:nth-child(10) .cell { justify-content: center; text-align: center; }
+
+/* Date Input Styling - Column 9 (Admission Date) */
+.sheet-table td:nth-child(9) input {
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 4px 8px;
+  margin: 0;
+  box-shadow: none;
+  width: 100%;
+  text-align: center;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+  border-radius: 4px;
+}
+
+.sheet-table td:nth-child(9) input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .12);
+}
+
+/* Date Input Styling - Column 10 (Discharge Date) */
+.sheet-table td:nth-child(10) input {
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  margin: 0;
+  box-shadow: none;
+  width: 100%;
+  text-align: center;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.sheet-table td:nth-child(10) input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Nursing Care Level Column (Column 11) - Center Alignment */
+.sheet-table th:nth-child(11), .sheet-table td:nth-child(11) {
+  text-align: center;
+}
+
+.sheet-table td:nth-child(11) .cell {
+  justify-content: center;
+  text-align: center;
+}
+
+/* DPC Colors */
+.sheet-table td:nth-child(6), .sheet-table th:nth-child(6) { background-color: #e8f5e9; }
+.sheet-table td:nth-child(7), .sheet-table th:nth-child(7) { background-color: #fffde7; }
+.sheet-table td:nth-child(8), .sheet-table th:nth-child(8) { background-color: #fdecea; }
+.sheet-table th:nth-child(1), .sheet-table th:nth-child(2) { background: rgba(255, 255, 255, .95) !important; }
+
+/* ==========================================================================
+   Specific Modules
+   ========================================================================== */
+/* Toolbar */
+.sheet-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin: 0 0 10px;
+}
+.sheet-toolbar-left, .sheet-toolbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sheet-toolbar-right .input { min-width: 340px; }
+
+/* KPI & Occupancy */
+.kpi-row-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin: 10px 0 6px; }
+.kpi-row-bar .kpi-box { flex: 1 1 220px; min-width: 220px; }
+.kpi-stack { margin-left: auto; display: flex; flex-direction: column; gap: 10px; min-width: 220px; }
+.kpi-title, .occ-title { margin: 0 0 6px; font-weight: 800; font-size: 13px; }
+.kpi-row, .occ-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.kpi-num, .occ-percent { font-weight: 900; font-size: 18px; }
+.kpi-subnum { font-weight: 800; font-size: 12px; color: var(--muted); }
+.kpi-sub, .occ-sub { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.occ-box { margin-left: auto; min-width: 180px; }
+.occ-fraction { font-weight: 800; font-size: 14px; }
+
+/* DPC Suggest & Selectors */
+.dpc-suggest, .bed-type-selector, .nursing-selector {
+  position: absolute; z-index: 9999; background: #fff;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .12); padding: 6px;
+}
+.dpc-suggest { min-width: 320px; max-width: 560px; max-height: 260px; overflow: auto; }
+.nursing-selector { min-width: 360px; max-width: 520px; padding: 10px; border-radius: var(--radius-md); }
+
+.dpc-suggest .item, .bed-type-option { padding: 8px 10px; border-radius: 10px; cursor: pointer; display: flex; gap: 8px; }
+.dpc-suggest .item:hover, .dpc-suggest .item.active, .bed-type-option:hover { background: var(--primary-weak); }
+
+/* Modals */
+.discharge-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .4);
+  z-index: 9998; display: grid; place-items: center;
+}
+.discharge-modal {
+  background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, .2);
+  width: min(600px, 90vw); max-height: 80vh; display: flex; flex-direction: column;
+}
+.discharge-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+.discharge-modal-content { padding: 14px 18px; overflow-y: auto; flex: 1; }
+
+/* ==========================================================================
+   Utilities & Helpers
+   ========================================================================== */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
+
+.hidden { display: none !important; }
+.divider, .bed-type-divider { height: 1px; background: var(--border); margin: 16px 0; }
+.bed-type-divider { margin: 4px 0; }
+
+.text-danger { color: var(--danger); }
+.text-muted { color: var(--muted); }
+
+/* Fixed Horizontal Scroll */
+.fixed-hscroll {
+  position: fixed; left: 0; right: 0; bottom: 0; height: 16px;
+  overflow-x: auto; overflow-y: hidden; background: rgba(255, 255, 255, .92);
+  border-top: 1px solid var(--border); backdrop-filter: blur(6px); z-index: 9997;
+}
+body.has-hscroll { padding-bottom: 18px; }
+.bed-room-ghost {
+  color: transparent;
+}
+
+/* 予定入院 / 病棟移動 / 推定緊急入院 を横並び */
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* 画面が狭い場合は自動で2列→1列 */
+@media (max-width: 1200px) {
+  .plan-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 768px) {
+  .plan-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* ========================================================================
+   Drag & Drop Styles for Patient ID Cell
+   ======================================================================== */
+
+/* ドラッグ中のソースセル */
+.patient-id-cell.dragging {
+  opacity: 0.4;
+  background: #dbeafe !important;
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+}
+
+/* ドロップ先候補セル */
+.patient-id-cell.drag-over {
+  background: #bfdbfe !important;
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+}
+
+/* ドラッグ可能を示すカーソル（ホバー時） */
+.patient-id-cell {
+  cursor: grab;
+  transition: background 0.15s ease, outline 0.15s ease;
+}
+
+.patient-id-cell:active {
+  cursor: grabbing;
+}
+
+/* ゴーストはJS内でインラインスタイル設定済み */
+

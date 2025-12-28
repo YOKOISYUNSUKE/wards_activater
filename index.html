@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>病床管理アプリ</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#2563eb" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🛏️</div>
+        <div>
+          <h1>病床管理アプリ</h1>
+          <p class="subtitle">ログインして病棟を選択</p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button id="btnLogout" class="btn btn-ghost hidden" type="button">ログアウト</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Auth Card -->
+      <section id="authView" class="card">
+        <h2 class="card-title">ログイン / 新規登録</h2>
+
+        <div class="form">
+<label class="label">
+  <span>Email（確認メールが届くアドレス）</span>
+  <input id="inputEmail" class="input" type="email" autocomplete="email" placeholder="例：taro@example.com" />
+</label>
+
+          <label class="label">
+            <span>PASS</span>
+            <input id="inputPass" class="input" type="password" autocomplete="current-password" placeholder="パスワード" />
+          </label>
+
+          <div class="row">
+            <button id="btnLogin" class="btn btn-primary" type="button">ログイン</button>
+            <button id="btnSignup" class="btn btn-outline" type="button">新規登録</button>
+          </div>
+
+
+<p class="hint">
+  ※ メール確認のため、実在するメールアドレスを使用してください。入力したメールアドレス（表示用）はこの端末の localStorage に保存されますが、認証状態は Supabase で管理されます。
+</p>
+
+          <div id="authMsg" class="msg" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+<!-- Ward Select Card -->
+<section id="wardView" class="card hidden">
+  <h2 class="card-title">病棟を選択</h2>
+
+<p class="muted">
+  ログイン中：<span id="currentUser"></span><br>
+  本日（日本時間）：<span id="todayJst"></span>
+</p>
+
+<h3 class="sheet-subtitle" style="margin-top:10px;">病院全体KPI（全病棟合算）</h3>
+
+<div class="kpi-row-bar" aria-label="病院全体KPI">
+  <div class="kpi-box">
+    <p class="kpi-title">平均在院日数</p>
+    <div class="kpi-row">
+      <span id="hospitalLosInpatients" class="kpi-subnum">-名</span>
+      <span id="hospitalLosAvg" class="kpi-num">-日</span>
+    </div>
+    <p class="kpi-sub">入院患者のみ</p>
+  </div>
+
+  <div class="kpi-box">
+<p class="kpi-title">看護必要度</p>
+<div class="kpi-row">
+  <span id="hospitalNursingAvgAbc" class="kpi-subnum">-/-(3ヶ月)</span>
+  <span id="hospitalNursingAvg" class="kpi-num">-%</span>
+</div>
+<p class="kpi-sub">①②③該当/延べ入院患者</p>
+  </div>
+
+  <div class="kpi-box">
+    <p class="kpi-title">稼働率</p>
+    <div class="kpi-row">
+      <span id="hospitalOccFraction" class="kpi-subnum">0/0</span>
+      <span id="hospitalOccPercent" class="kpi-num">0%</span>
+    </div>
+    <p class="kpi-sub">入院人数/病床数</p>
+  </div>
+</div>
+
+  <div class="wardcount">
+    <div class="wardcount-head">
+      <div>
+        <p class="wardcount-title">病棟</p>
+        <p class="wardcount-sub">最大20</p>
+      </div>
+      <div id="wardCountLabel" class="wardcount-badge">-</div>
+    </div>
+
+    <div class="wardcount-actions">
+      <button id="btnAddWard" class="btn btn-outline" type="button">＋ 病棟を追加</button>
+    </div>
+  </div>
+
+
+
+  <div class="divider"></div>
+
+  <div id="wardGrid" class="grid"></div>
+
+  <div id="wardMsg" class="msg" role="status" aria-live="polite"></div>
+</section>
+
+<!-- Ward Sheet View -->
+<section id="sheetView" class="card hidden">
+<div class="sheet-toolbar">
+  <div class="sheet-toolbar-left">
+    <label class="label">
+      <span>病床数</span>
+      <input
+        id="inputBedCount"
+        class="input"
+        type="number"
+        min="0"
+        max="200"
+        step="1"
+        placeholder="例：40"
+      />
+    </label>
+    <button id="btnDischargeOptimize" class="btn btn-primary" type="button">退院調整</button>
+  </div>
+  <div class="sheet-toolbar-right">
+    <input id="sheetSearch" class="input" type="search" placeholder="検索（患者ID/病名/DPC/退院予定日/メモ…）" />
+  </div>
+</div>
+
+
+<div class="sheet-head">
+  <button id="btnBackToWards" class="btn btn-ghost">← 病棟選択へ</button>
+  <div>
+    <h2 class="card-title" style="margin:0;">病棟シート</h2>
+    <p class="muted" style="margin:6px 0 0;">
+      対象：<span id="sheetWardName"></span>
+    </p>
+  </div>
+</div>
+
+<!-- KPI 横並び行（新設） -->
+<div class="kpi-row-bar" aria-label="病棟KPI">
+  <div class="kpi-box">
+    <p class="kpi-title">平均在院日数</p>
+    <div class="kpi-row">
+      <span id="losInpatients" class="kpi-subnum">-名</span>
+      <span id="losAvg" class="kpi-num">-日</span>
+    </div>
+    <p class="kpi-sub">入院患者のみ</p>
+  </div>
+
+  <div class="kpi-box">
+    <p class="kpi-title">看護必要度</p>
+    <div class="kpi-row">
+      <span id="nursingAvgAbc" class="kpi-subnum">A-/B-/C-</span>
+      <span id="nursingAvg" class="kpi-num">-</span>
+    </div>
+    <p class="kpi-sub">①②③該当/延べ入院患者</p>
+  </div>
+
+  <div class="kpi-box">
+    <p class="kpi-title">稼働率</p>
+    <div class="kpi-row">
+      <span id="occFraction" class="kpi-subnum">0/0</span>
+      <span id="occPercent" class="kpi-num">0%</span>
+    </div>
+    <p class="kpi-sub">入院人数/病床数</p>
+  </div>
+</div>
+
+
+  <div class="divider"></div>
+
+  <!-- 予定入院 / 推定緊急入院（退院調整ロジック用の入力） -->
+  <div class="plan-wrap" aria-label="予定入院と推定緊急入院">
+    <div class="plan-grid">
+      <div class="plan-card">
+        <div class="plan-card-head">
+          <div>
+            <p class="plan-title">予定入院患者登録</p>
+            <p class="plan-sub">ID / 病名 / 入院予定日 / 予定入院期間（日）</p>
+          </div>
+          <button id="btnAddPlannedAdmission" class="btn btn-outline plan-btn" type="button">＋ 追加</button>
+        </div>
+
+        <div class="plan-table-wrap">
+          <table id="plannedAdmissionsTable" class="plan-table"></table>
+        </div>
+        <div id="plannedAdmissionsMsg" class="msg" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-card-head">
+          <div>
+            <p class="plan-title">推定緊急入院患者人数</p>
+            <p class="plan-sub">本日分（1〜10）</p>
+          </div>
+        </div>
+
+        <div class="plan-er">
+          <label class="label" style="margin:0;">
+            <span>人数</span>
+            <select id="selectErEstimate" class="input">
+              <option value="">未設定</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </label>
+          <div class="plan-er-hint">※ 保存は自動です。</div>
+        </div>
+        <div id="erEstimateMsg" class="msg" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ローカル簡易スプレッドシート -->
+  <h3 class="sheet-subtitle">院内シート（ローカル保存）</h3>
+
+  <p class="muted">セルをクリックして編集 → 自動保存します。</p>
+
+
+
+  <div class="table-wrap">
+    <table id="sheetTable" class="sheet-table"></table>
+  </div>
+
+  <div class="divider"></div>
+
+
+  <div id="sheetMsg" class="msg" role="status" aria-live="polite"></div>
+</section>
+    </main>
+
+    <footer class="footer">
+      <small>© 病床管理（プロトタイプ）</small>
+    </footer>
+  </div>
+
+<script src="./ward_occupancy_idealizer.js"></script>
+<script src="./dpc_master.js"></script>
+<!-- Supabase（クラウド保存） -->
+<script src="./supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./cloud-supabase.js"></script>
+<script src="./ward-core.js"></script>
+<script src="./ward-features.js"></script>
+<script src="./ward-dnd.js"></script>
+<script src="./ward-kpi.js"></script>
+<script src="./ward-ui-wardlist.js"></script>
+<script src="./ward-ui-sheet.js"></script>
+<script src="./ward-sheet-table.js"></script>
+<script src="./ward-sheet.js"></script>
+<script src="./app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
