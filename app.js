@@ -92,6 +92,79 @@ function saveLoginEmail(email) {
 function emailForDisplay(email) {
   return (email || '').trim();
 }
+function ensureSyncOverlay() {
+  let overlay = document.getElementById('syncOverlay');
+  if (overlay) return overlay;
+
+  // style（1回だけ）
+  if (!document.getElementById('syncOverlayStyle')) {
+    const style = document.createElement('style');
+    style.id = 'syncOverlayStyle';
+    style.textContent = `
+      .sync-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255,255,255,0.72);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+      }
+      .sync-overlay.hidden { display: none; }
+      .sync-box {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 10px 28px rgba(0,0,0,0.12);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: calc(100vw - 24px);
+      }
+      .sync-spinner {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        border: 3px solid rgba(0,0,0,0.12);
+        border-top-color: rgba(0,0,0,0.55);
+        animation: syncspin 0.9s linear infinite;
+      }
+      @keyframes syncspin { to { transform: rotate(360deg); } }
+      .sync-text {
+        font-size: 13px;
+        color: #111827;
+        line-height: 1.3;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  overlay = document.createElement('div');
+  overlay.id = 'syncOverlay';
+  overlay.className = 'sync-overlay hidden';
+  overlay.innerHTML = `
+    <div class="sync-box" role="status" aria-live="polite" aria-busy="true">
+      <div class="sync-spinner" aria-hidden="true"></div>
+      <div class="sync-text" id="syncOverlayText">同期中…</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function setSyncOverlay(isOn, text) {
+  const overlay = ensureSyncOverlay();
+  const t = document.getElementById('syncOverlayText');
+  if (t) t.textContent = String(text || '同期中…');
+  overlay.classList.toggle('hidden', !isOn);
+
+  // 同期中の誤操作を少し抑制（任意）
+  try {
+    const btn = document.getElementById('btnAddWard');
+    if (btn) btn.disabled = !!isOn;
+  } catch { }
+}
 
 
 // ===== Auth =====
@@ -118,10 +191,20 @@ async function signup() {
 
   setMsg('登録しました。ログイン状態になりました。');
 
-  // 初回同期（クラウド→ローカル）
-  await WardCore.cloudSyncDownAll();
+  // いったん病棟画面へ（同期前描画はしない）
+  await render(false);
 
-  await render();
+  // 同期中スピナー
+  setSyncOverlay(true, 'クラウドから同期中…');
+
+  try {
+    await WardCore.cloudSyncDownAll();
+    await render(true);
+  } finally {
+    setSyncOverlay(false);
+  }
+
+
 }
 
 
@@ -145,27 +228,43 @@ async function login() {
 
   setMsg('ログインしました。');
 
-  // ログイン直後にクラウド→ローカル
-  await WardCore.cloudSyncDownAll();
+  // いったん病棟画面へ（同期前描画はしない）
+  await render(false);
 
-  await render();
+  // 同期中スピナー
+  setSyncOverlay(true, 'クラウドから同期中…');
+
+  try {
+    await WardCore.cloudSyncDownAll();
+    await render(true);
+  } finally {
+    setSyncOverlay(false);
+  }
+
 }
 
 
 async function logout() {
   await CloudSupabase.signOut();
 
-  setMsg('ログアウトしました。');
+setMsg('ログアウトしました。');
 
-  // 病棟側の状態をクリア（存在すれば）
-  window.BMWard?.reset?.();
+// 既存UIは bm_session_v1 を参照するため、ログアウト時に明示的に破棄
+try {
+  WardCore.clearSession?.();
+} catch { }
+
+// 病棟側の状態をクリア（存在すれば）
+window.BMWard?.reset?.();
+
 
   await render();
 }
 
 
 // ===== Views =====
-async function render() {
+// ===== Views =====
+async function render(afterSync = false) {
   const { data } = await CloudSupabase.getUser();
   const loggedIn = !!data?.user;
 
@@ -173,25 +272,38 @@ async function render() {
   btnLogout?.classList.toggle('hidden', !loggedIn);
 
   if (!loggedIn) {
+    setSyncOverlay(false);
     wardView?.classList.add('hidden');
     sheetView?.classList.add('hidden');
     if (inputPass) inputPass.value = '';
     return;
   }
 
+
+  // ✅ Supabaseのuidをローカルセッション（bm_session_v1）へ同期
+  // これが無いと、病棟カードクリック時の openWardSheet が userId なしで中断し「進めない」
+  try {
+    const uid = data?.user?.id || '';
+    const email = loadLoginEmail() || data?.user?.email || '';
+    WardCore.setSession?.({ userId: uid, loginId: emailForDisplay(email) });
+  } catch { }
+
   if (sheetView?.classList.contains('hidden')) {
     wardView?.classList.remove('hidden');
   }
 
-  // 表示用（メールアドレス）
-  const email = loadLoginEmail() || 'user@example.com';
-  window.BMWard?.render?.(emailForDisplay(email));
+  // 🔑 同期完了後のみ「病棟一覧の描画」を実行（同期前描画を防ぐ）
+  if (afterSync) {
+    const email = loadLoginEmail() || 'user@example.com';
+    window.BMWard?.render?.(emailForDisplay(email));
+  }
 
   const todayEl = document.getElementById('todayJst');
   if (todayEl) todayEl.textContent = todayJSTJa();
 
   if (inputPass) inputPass.value = '';
 }
+
 
 
 // ===== Events =====

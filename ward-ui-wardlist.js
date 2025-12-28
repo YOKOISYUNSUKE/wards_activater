@@ -107,6 +107,7 @@
       return;
     }
 
+
     const ok = window.confirm(`「${w.name}」を削除します。\nこの病棟のシートデータ（患者一覧）も削除されます。よろしいですか？`);
     if (!ok) return;
 
@@ -123,12 +124,20 @@
     const { wardGrid, currentUser } = getDom();
     if (!wardGrid) return;
 
+    if (!userId) {
+      wardGrid.innerHTML = '';
+      if (currentUser) currentUser.textContent = '';
+      setWardMsg('同期中…', false);
+      return;
+    }
+
     const wards = getWardsForUser(userId);
 
     wardGrid.innerHTML = '';
     wards.forEach((w, idx) => {
       const card = document.createElement('div');
       card.className = 'ward-card';
+
 
       const main = document.createElement('button');
       main.type = 'button';
@@ -171,13 +180,14 @@
       wardGrid.appendChild(card);
     });
 
-        const session = loadSession?.();
+    const session = loadSession?.();
     const displayUser = session?.loginId ? session.loginId : userId;
 
     if (currentUser) currentUser.textContent = displayUser;
 
     updateWardCountBadge(userId);
   }
+
 
   window.BMWardWardList = {
     renderWardButtons,

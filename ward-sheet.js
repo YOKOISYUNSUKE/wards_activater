@@ -214,9 +214,17 @@
   }
 
   // ===== 互換API（app.js 等から呼ばれる前提） =====
-  function render() {
+  // ===== 互換API（app.js 等から呼ばれる前提） =====
+  function render(loginIdForUi) {
     const session = loadSession();
     if (!session?.userId) return;
+
+    // 表示用：ログイン中メール等を病棟選択画面へ反映
+    try {
+      const el = document.getElementById('currentUser');
+      const text = String(loginIdForUi || session?.loginId || '').trim();
+      if (el) el.textContent = text;
+    } catch { }
 
     ensureState();
     window.BMWardSheetUI?.render?.(session.userId);
@@ -233,6 +241,7 @@
       window.WardKpi?.setHospitalKpiUiUnknown?.();
     }
   }
+
 
   function reset() {
     const st = ensureState();
