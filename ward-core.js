@@ -561,11 +561,27 @@ async function dbPutSheet(d, userId, wardId, rows) {
   await txDone(tx);
 }
 
+
 async function dbDeleteSheet(d, userId, wardId) {
   const key = makeSheetKey(userId, wardId);
   const tx = d.transaction(STORE_SHEETS, 'readwrite');
   tx.objectStore(STORE_SHEETS).delete(key);
   await txDone(tx);
+}
+
+async function setSheetRows(userId, wardId, rows) {
+  const d = await ensureDb();
+  await dbPutSheet(d, userId, wardId, rows);
+
+  // クラウドへの同期をスケジュール
+  scheduleCloud(async () => {
+    const payload = {
+      sheetRows: rows,
+      plannedAdmissions: null,
+      erEstimateByDate: null
+    };
+    await cloudUpsertWardState(wardId, payload);
+  });
 }
 
 async function deleteSheetRows(userId, wardId) {
