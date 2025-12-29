@@ -121,15 +121,35 @@ async function cloudUpsertUserState(uid, data) {
 }
 
 
-async function cloudUpsertWardState(wardId, data) {
+async function cloudUpsertWardState(wardId, partialData) {
   const c = cloudClient();
   const uid = await cloudUid();
   if (!c || !uid || !wardId) return;
 
+  // 既存データを取得してマージ
+  let existingData = {};
+  try {
+    const res = await c
+      .from(CLOUD_TABLE_WARD_STATE)
+      .select('data')
+      .eq('user_id', uid)
+      .eq('ward_id', wardId)
+      .single();
+    if (res?.data?.data) {
+      existingData = res.data.data;
+    }
+  } catch { /* 新規の場合は空 */ }
+
+  // null でないフィールドのみマージ
+  const mergedData = { ...existingData };
+  Object.entries(partialData || {}).forEach(([k, v]) => {
+    if (v !== null) mergedData[k] = v;
+  });
+
   await c.from(CLOUD_TABLE_WARD_STATE).upsert({
     user_id: uid,
     ward_id: wardId,
-    data,
+    data: mergedData,
     updated_at: new Date().toISOString()
   });
 }
@@ -160,7 +180,6 @@ async function cloudDownloadWardStates(uid) {
 }
 
 
-// ward-core.js 行 100-108 付近
 async function cloudSyncDownAll() {
   const uid = await cloudUid();
   if (!uid) return;
@@ -173,17 +192,20 @@ async function cloudSyncDownAll() {
 
   const wards = await cloudDownloadWardStates(uid);
   for (const row of wards) {
-    if (!row?.ward_id) continue;
+    if (!row?.ward_id || !row.data) continue;
 
-    if (row.data?.sheetRows) {
+    // sheetRows の保存（nullでない場合のみ）
+    if (Array.isArray(row.data.sheetRows)) {
       await setSheetRows(uid, row.ward_id, row.data.sheetRows);
     }
 
-    if (row.data?.plannedAdmissions) {
+    // plannedAdmissions の保存（nullでない場合のみ）
+    if (Array.isArray(row.data.plannedAdmissions)) {
       saveObj(plannedAdmissionsKey(uid, row.ward_id), row.data.plannedAdmissions);
     }
 
-    if (row.data?.erEstimateByDate) {
+    // erEstimateByDate の保存
+    if (row.data.erEstimateByDate && typeof row.data.erEstimateByDate === 'object') {
       Object.entries(row.data.erEstimateByDate).forEach(([isoDate, v]) => {
         const k = erEstimateKey(uid, row.ward_id, isoDate);
         localStorage.setItem(k, String(v));
@@ -314,8 +336,8 @@ function setWardTransfers(userId, list) {
   saveObj(key, next);
 
   scheduleCloud(async () => {
-    const wards = getWardsForUser(userId);
-    await cloudUpsertUserState({ wards, transfers: next });
+    const transfers = getWardTransfers(userId);
+    await cloudUpsertUserState(userId, { wards, transfers });
   });
 }
 
@@ -617,7 +639,7 @@ function setWardsForUser(userId, wards) {
 
   scheduleCloud(async () => {
     const transfers = getWardTransfers(userId);
-    await cloudUpsertUserState({ wards, transfers });
+    await cloudUpsertUserState(userId, { wards, transfers }); 
   });
 }
 
