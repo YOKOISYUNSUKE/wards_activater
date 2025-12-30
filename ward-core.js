@@ -113,12 +113,17 @@ async function cloudUpsertUserState(uid, data) {
   const c = cloudClient();
   if (!c || !uid) return;
 
-  await c.from(CLOUD_TABLE_USER_STATE).upsert({
+  const res = await c.from(CLOUD_TABLE_USER_STATE).upsert({
     user_id: uid,
     data,
     updated_at: new Date().toISOString()
   });
+
+  if (res?.error) {
+    console.warn('cloudUpsertUserState failed', res.error);
+  }
 }
+
 
 
 async function cloudUpsertWardState(wardId, partialData) {
@@ -134,7 +139,7 @@ async function cloudUpsertWardState(wardId, partialData) {
       .select('data')
       .eq('user_id', uid)
       .eq('ward_id', wardId)
-      .single();
+      .maybesingle();
     if (res?.data?.data) {
       existingData = res.data.data;
     }
@@ -146,12 +151,17 @@ async function cloudUpsertWardState(wardId, partialData) {
     if (v !== null) mergedData[k] = v;
   });
 
-  await c.from(CLOUD_TABLE_WARD_STATE).upsert({
+  const res = await c.from(CLOUD_TABLE_WARD_STATE).upsert({
     user_id: uid,
     ward_id: wardId,
     data: mergedData,
     updated_at: new Date().toISOString()
   });
+
+  if (res?.error) {
+    console.warn('cloudUpsertWardState failed', res.error);
+  }
+
 }
 
 async function cloudDownloadUserState(uid) {
@@ -162,9 +172,14 @@ async function cloudDownloadUserState(uid) {
     .from(CLOUD_TABLE_USER_STATE)
     .select('data, updated_at')
     .eq('user_id', uid)
-    .single();
+    .maybeSingle();
+
+  if (res?.error) {
+    console.warn('cloudDownloadUserState failed', res.error);
+  }
 
   return res?.data || null;
+
 }
 
 async function cloudDownloadWardStates(uid) {
@@ -176,9 +191,54 @@ async function cloudDownloadWardStates(uid) {
     .select('ward_id, data, updated_at')
     .eq('user_id', uid);
 
+  if (res?.error) {
+    console.warn('cloudDownloadWardStates failed', res.error);
+  }
+
+  return Array.isArray(res?.data) ? res.data : [];
+
+}
+
+
+async function cloudDownloadWardStates(uid) {
+  const c = cloudClient();
+  if (!c || !uid) return [];
+
+  const res = await c
+    .from(CLOUD_TABLE_WARD_STATE)
+    .select('ward_id, data, updated_at')
+    .eq('user_id', uid);
+
+  if (res?.error) {
+    console.warn('cloudDownloadWardStates failed', res.error);
+  }
+
   return Array.isArray(res?.data) ? res.data : [];
 }
 
+function pickArrayFromMaybeMap(raw, uid) {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object') {
+    if (uid && Array.isArray(raw[uid])) return raw[uid];
+    if (Array.isArray(raw.list)) return raw.list;
+    if (Array.isArray(raw.items)) return raw.items;
+  }
+  return [];
+}
+
+function normalizeWardsList(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((w) => ({
+      id: String(w?.id ?? '').trim(),
+      name: String(w?.name ?? '').trim(),
+    }))
+    .filter((w) => w.id || w.name)
+    .map((w, idx) => ({
+      id: w.id || `ward${idx + 1}`,
+      name: w.name || w.id || defaultWardName(idx + 1),
+    }));
+}
 
 async function cloudSyncDownAll() {
   const uid = await cloudUid();
@@ -186,25 +246,54 @@ async function cloudSyncDownAll() {
 
   const u = await cloudDownloadUserState(uid);
   if (u?.data) {
-    saveObj(KEY_WARDS, { [uid]: u.data.wards || [] });
-    saveObj(wardTransfersKey(uid), u.data.transfers || []);
+    const wardsRaw = u.data.wards;
+    const transfersRaw = u.data.transfers;
+
+    const wardsList = normalizeWardsList(pickArrayFromMaybeMap(wardsRaw, uid));
+    const transfersList = normalizeWardTransfersList(pickArrayFromMaybeMap(transfersRaw, uid));
+
+    saveObj(KEY_WARDS, { [uid]: wardsList });
+    saveObj(wardTransfersKey(uid), transfersList);
+
+    // 旧形式（Map保存）からの自動移行：配列形式へ上書き保存
+    const needsMigrate =
+      (wardsRaw && !Array.isArray(wardsRaw) && typeof wardsRaw === 'object') ||
+      (transfersRaw && !Array.isArray(transfersRaw) && typeof transfersRaw === 'object');
+
+    if (needsMigrate) {
+      scheduleCloud(async () => {
+        await cloudUpsertUserState(uid, { wards: wardsList, transfers: transfersList });
+      }, `user:${uid}:migrate`);
+    }
+  } else {
+    // 新規ユーザー or クラウドにデータなし: デフォルト病棟がなければ作成
+    const existing = loadObj(KEY_WARDS, {});
+    if (!Array.isArray(existing[uid]) || existing[uid].length === 0) {
+      existing[uid] = [{ id: 'ward1', name: '第1病棟' }];
+      saveObj(KEY_WARDS, existing);
+    }
+
+    // bm_user_state が未作成の場合、ローカル状態をクラウドへ初期保存しておく
+    try {
+      const wards = getWardsForUser(uid);
+      const transfers = getWardTransfers(uid);
+      await cloudUpsertUserState(uid, { wards, transfers });
+    } catch (e) {
+      console.warn('cloudSyncDownAll initial user_state upsert failed', e);
+    }
   }
+
 
   const wards = await cloudDownloadWardStates(uid);
   for (const row of wards) {
     if (!row?.ward_id || !row.data) continue;
 
-    // sheetRows の保存（nullでない場合のみ）
     if (Array.isArray(row.data.sheetRows)) {
-      await setSheetRows(uid, row.ward_id, row.data.sheetRows);
+      await setSheetRows(uid, row.ward_id, row.data.sheetRows, { skipCloud: true });
     }
-
-    // plannedAdmissions の保存（nullでない場合のみ）
     if (Array.isArray(row.data.plannedAdmissions)) {
       saveObj(plannedAdmissionsKey(uid, row.ward_id), row.data.plannedAdmissions);
     }
-
-    // erEstimateByDate の保存
     if (row.data.erEstimateByDate && typeof row.data.erEstimateByDate === 'object') {
       Object.entries(row.data.erEstimateByDate).forEach(([isoDate, v]) => {
         const k = erEstimateKey(uid, row.ward_id, isoDate);
@@ -213,6 +302,7 @@ async function cloudSyncDownAll() {
     }
   }
 }
+
 
 
 // ===== 退院調整ロジック入力（予定入院 / 推定緊急入院） =====
@@ -337,6 +427,7 @@ function setWardTransfers(userId, list) {
 
   scheduleCloud(async () => {
     const transfers = getWardTransfers(userId);
+    const wards = getWardsForUser(userId);
     await cloudUpsertUserState(userId, { wards, transfers });
   });
 }
