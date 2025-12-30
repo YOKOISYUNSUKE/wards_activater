@@ -39,23 +39,45 @@ const CLOUD_TABLE_USER_STATE = 'bm_user_state';
 const CLOUD_TABLE_WARD_STATE = 'bm_ward_state';
 const CLOUD_DEBOUNCE_MS = 1200;
 
-let _cloudTimer = null;
+const _cloudTimers = new Map();
 
+// Supabase client / uid helpers
 function cloudClient() {
   return window.CloudSupabase?.client || null;
 }
 
 async function cloudUid() {
-  const c = cloudClient();
-  if (!c) return null;
-  const { data } = await c.auth.getUser();
-  return data?.user?.id || null;
+  // 1) Supabaseの現在ユーザー（最優先）
+  try {
+    const res = await window.CloudSupabase?.getUser?.();
+    const uid = res?.data?.user?.id;
+    if (uid) return String(uid);
+  } catch { }
+
+  // 2) 互換: ローカルセッション（bm_session_v1）
+  try {
+    const s = loadSession?.();
+    const uid2 = s?.userId;
+    if (uid2) return String(uid2);
+  } catch { }
+
+  return '';
 }
 
-function scheduleCloud(fn) {
-  clearTimeout(_cloudTimer);
-  _cloudTimer = setTimeout(fn, CLOUD_DEBOUNCE_MS);
+function scheduleCloud(fn, key) {
+  const k = String(key || 'default');
+  const prev = _cloudTimers.get(k);
+  if (prev) clearTimeout(prev);
+  _cloudTimers.set(k, setTimeout(async () => {
+    try {
+      await fn();
+    } finally {
+      _cloudTimers.delete(k);
+    }
+  }, CLOUD_DEBOUNCE_MS));
 }
+
+
 
 // ===== Sheet columns =====
 const SHEET_COLUMNS = [
@@ -139,7 +161,7 @@ async function cloudUpsertWardState(wardId, partialData) {
       .select('data')
       .eq('user_id', uid)
       .eq('ward_id', wardId)
-      .maybesingle();
+      .maybeSingle();
     if (res?.data?.data) {
       existingData = res.data.data;
     }
@@ -199,22 +221,6 @@ async function cloudDownloadWardStates(uid) {
 
 }
 
-
-async function cloudDownloadWardStates(uid) {
-  const c = cloudClient();
-  if (!c || !uid) return [];
-
-  const res = await c
-    .from(CLOUD_TABLE_WARD_STATE)
-    .select('ward_id, data, updated_at')
-    .eq('user_id', uid);
-
-  if (res?.error) {
-    console.warn('cloudDownloadWardStates failed', res.error);
-  }
-
-  return Array.isArray(res?.data) ? res.data : [];
-}
 
 function pickArrayFromMaybeMap(raw, uid) {
   if (Array.isArray(raw)) return raw;
@@ -660,11 +666,19 @@ async function dbDeleteSheet(d, userId, wardId) {
   await txDone(tx);
 }
 
-async function setSheetRows(userId, wardId, rows) {
+async function deleteSheetRows(userId, wardId) {
+  const d = await ensureDb();
+  await dbDeleteSheet(d, userId, wardId);
+}
+
+async function setSheetRows(userId, wardId, rows, options) {
+
   const d = await ensureDb();
   await dbPutSheet(d, userId, wardId, rows);
 
-  // クラウドへの同期をスケジュール
+  const opt = options || {};
+  if (opt.skipCloud) return;
+
   scheduleCloud(async () => {
     const payload = {
       sheetRows: rows,
@@ -672,13 +686,11 @@ async function setSheetRows(userId, wardId, rows) {
       erEstimateByDate: null
     };
     await cloudUpsertWardState(wardId, payload);
-  });
+  }, `ward:${userId}:${wardId}:sheetRows`);
 }
 
-async function deleteSheetRows(userId, wardId) {
-  const d = await ensureDb();
-  await dbDeleteSheet(d, userId, wardId);
-}
+// NOTE: setSheetRows は上で定義済み（クラウド同期あり）。
+
 
 async function getSheetRows(userId, wardId) {
   const d = await ensureDb();
@@ -694,10 +706,6 @@ async function getSheetRows(userId, wardId) {
   return makeEmptyRows(3);
 }
 
-async function setSheetRows(userId, wardId, rows) {
-  const d = await ensureDb();
-  await dbPutSheet(d, userId, wardId, rows);
-}
 
 // ===== 病棟管理 =====
 function loadAllWards() { return loadObj(KEY_WARDS, {}); }
