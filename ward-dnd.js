@@ -2,7 +2,7 @@
 
 /**
  * ward-dnd.js
- * 患者IDセルのポインターベース ドラッグ＆ドロップ入れ替え（ベッドNoは固定）
+ * 患者IDセルのハンドルベース ドラッグ＆ドロップ入れ替え（ベッドNoは固定）
  *
  * 使い方：
  *   WardDnD.bindPatientSwap(sheetTable, {
@@ -23,13 +23,11 @@
     setSheetRows,
   } = window.WardCore;
 
-  const PATIENT_SWAP_DRAG_ARM_MS = 200;       // ドラッグ開始までの長押し時間
   const PATIENT_SWAP_DRAG_THRESHOLD_PX = 6;   // ドラッグ判定の移動閾値
 
   // 患者ID：ポインターベースのドラッグ状態
   const patientSwapDragState = {
     active: false,
-    armed: false,
     dragging: false,
     pointerId: null,
     srcRowIdx: null,
@@ -38,16 +36,11 @@
     srcEl: null,
     overEl: null,
     ghostEl: null,
-    armTimer: null,
     prevBodyUserSelect: '',
   };
 
   function resetPatientSwapDragState() {
-    if (patientSwapDragState.armTimer) {
-      clearTimeout(patientSwapDragState.armTimer);
-    }
     patientSwapDragState.active = false;
-    patientSwapDragState.armed = false;
     patientSwapDragState.dragging = false;
     patientSwapDragState.pointerId = null;
     patientSwapDragState.srcRowIdx = null;
@@ -56,7 +49,6 @@
     patientSwapDragState.srcEl = null;
     patientSwapDragState.overEl = null;
     patientSwapDragState.ghostEl = null;
-    patientSwapDragState.armTimer = null;
   }
 
   function stopPatientSwapDragVisuals() {
@@ -92,7 +84,10 @@
 
     const ghost = document.createElement('div');
     ghost.className = 'patient-swap-ghost';
-    ghost.textContent = srcEl.textContent || '（空）';
+    // 患者IDセル（親要素）からテキストを取得
+    const parentCell = srcEl.closest('.patient-id-cell');
+    const textContent = parentCell ? parentCell.textContent.trim() : '';
+    ghost.textContent = textContent || '（空）';
     ghost.style.cssText = `
       position: fixed;
       pointer-events: none;
@@ -205,35 +200,36 @@
   function bindPatientSwap(sheetTable, ctx) {
     if (!sheetTable) return;
 
-    sheetTable.querySelectorAll('.patient-id-cell').forEach(el => {
-      if (el.dataset.patientSwapBound === '1') return;
-      el.dataset.patientSwapBound = '1';
+    // ハンドル要素にイベントをバインド
+    sheetTable.querySelectorAll('.patient-drag-handle').forEach(handle => {
+      if (handle.dataset.patientSwapBound === '1') return;
+      handle.dataset.patientSwapBound = '1';
 
       // ネイティブDnDを抑止
-      el.addEventListener('dragstart', (e) => e.preventDefault());
+      handle.addEventListener('dragstart', (e) => e.preventDefault());
 
-      el.addEventListener('pointerdown', (e) => {
+      handle.addEventListener('pointerdown', (e) => {
         if (!('pointerId' in e)) return;
         if (e.button !== 0) return;
 
-        const rowIdx = Number(el.getAttribute('data-idx'));
+        const parentCell = handle.closest('.patient-id-cell');
+        if (!parentCell) return;
+
+        const rowIdx = Number(parentCell.getAttribute('data-idx'));
         if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
         if (patientSwapDragState.active) return;
 
-        // ★ 即座にキャプチャしない（クリック編集との競合防止）
+        e.preventDefault();
+        e.stopPropagation();
+
         patientSwapDragState.active = true;
-        patientSwapDragState.armed = false;
         patientSwapDragState.dragging = false;
         patientSwapDragState.pointerId = e.pointerId;
         patientSwapDragState.srcRowIdx = rowIdx;
         patientSwapDragState.startX = e.clientX;
         patientSwapDragState.startY = e.clientY;
-        patientSwapDragState.srcEl = el;
+        patientSwapDragState.srcEl = parentCell;
         patientSwapDragState.overEl = null;
-
-        patientSwapDragState.armTimer = setTimeout(() => {
-          patientSwapDragState.armed = true;
-        }, PATIENT_SWAP_DRAG_ARM_MS);
 
         const onPointerMove = (ev) => {
           if (!('pointerId' in ev)) return;
@@ -245,20 +241,9 @@
           const moved2 = dx * dx + dy * dy;
           const thr2 = PATIENT_SWAP_DRAG_THRESHOLD_PX * PATIENT_SWAP_DRAG_THRESHOLD_PX;
 
-          // アーム前に閾値を超えた移動 → ドラッグ意図なしとみなしキャンセル
-          if (!patientSwapDragState.armed && moved2 >= thr2) {
-            window.removeEventListener('pointermove', onPointerMove, { passive: false });
-            window.removeEventListener('pointerup', onPointerUp, true);
-            window.removeEventListener('pointercancel', onPointerUp, true);
-            resetPatientSwapDragState();
-            return;
-          }
-
-          if (!patientSwapDragState.armed) return;
-
           // ドラッグ開始
           if (!patientSwapDragState.dragging && moved2 >= thr2) {
-            startPatientSwapDrag(el, ev.pointerId, ev.clientX, ev.clientY);
+            startPatientSwapDrag(parentCell, ev.pointerId, ev.clientX, ev.clientY);
           }
 
           if (!patientSwapDragState.dragging) return;
@@ -280,7 +265,7 @@
 
           // ポインターキャプチャをリリース
           try {
-            el.releasePointerCapture(ev.pointerId);
+            handle.releasePointerCapture(ev.pointerId);
           } catch (err) {
             // 無視
           }
@@ -293,9 +278,6 @@
           try {
             if (wasDragging && dstEl) {
               await commitPatientSwapIfNeeded(dstEl, ctx);
-            } else if (!wasDragging) {
-              // ドラッグしなかった（短いクリック）→ 編集モードに
-              el.focus();
             }
           } finally {
             resetPatientSwapDragState();

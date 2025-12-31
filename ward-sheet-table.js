@@ -176,12 +176,9 @@ if (c === COL_BED_NO) {
                   <td>
                     <div
                       class="cell patient-id-cell"
-                      contenteditable="true"
-                      draggable="false"
                       data-idx="${it.idx}"
                       data-c="${c}"
-                      title="長押し→ドラッグで他の患者と入れ替え（ベッドNoは固定）"
-                    >${escapeHtml(cell)}</div>
+                    ><span class="patient-drag-handle" title="ドラッグで入れ替え">⠿</span><span class="patient-id-text" contenteditable="true">${escapeHtml(cell)}</span></div>
                   </td>
                 `;
               }
@@ -211,7 +208,7 @@ if (c === COL_BED_NO) {
 
     const st = state();
 
-    // ★ 患者IDセルのドラッグ＆ドロップをバインド
+    // ★ 患者IDセルのドラッグ＆ドロップをバインド（ハンドル経由）
     if (window.WardDnD?.bindPatientSwap) {
       window.WardDnD.bindPatientSwap(sheetTable, {
         getRows: () => st.sheetAllRows,
@@ -238,12 +235,15 @@ if (c === COL_BED_NO) {
       });
     });
 
-    // セル編集イベント
-    sheetTable.querySelectorAll('.cell').forEach(el => {
+    // セル編集イベント（患者ID用：.patient-id-text）
+    sheetTable.querySelectorAll('.patient-id-text').forEach(el => {
       el.addEventListener('blur', () => {
         try {
-          const c = Number(el.getAttribute('data-c'));
-          const rowIdx = Number(el.getAttribute('data-idx'));
+          const parentCell = el.closest('.patient-id-cell');
+          if (!parentCell) return;
+
+          const c = Number(parentCell.getAttribute('data-c'));
+          const rowIdx = Number(parentCell.getAttribute('data-idx'));
           const master = window.DPC_MASTER;
 
           // 患者ID → 入院日自動設定（date-input対応）
@@ -273,6 +273,28 @@ if (c === COL_BED_NO) {
               }
             }
           }
+
+          // 通常セル更新
+          if (Number.isFinite(rowIdx) && rowIdx >= 0 && st.sheetAllRows?.[rowIdx]) {
+            st.sheetAllRows[rowIdx][c] = (el.textContent ?? '').trim();
+          }
+
+          persistSheetFromDom('自動保存しました');
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    });
+
+    // セル編集イベント（通常セル）
+    sheetTable.querySelectorAll('.cell:not(.patient-id-cell)').forEach(el => {
+      if (!el.hasAttribute('contenteditable')) return;
+
+      el.addEventListener('blur', () => {
+        try {
+          const c = Number(el.getAttribute('data-c'));
+          const rowIdx = Number(el.getAttribute('data-idx'));
+          const master = window.DPC_MASTER;
 
           // DPC入力セル（contenteditable）→ マスタ参照して I/II/III 自動セット
           if (c === COL_DPC) {

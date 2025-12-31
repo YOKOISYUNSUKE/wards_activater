@@ -849,3 +849,69 @@ body.has-hscroll {
     max-width: none;
   }
 }
+/* ==========================================================================
+   ドラッグハンドル追加分（styles.css末尾に追記）
+   ========================================================================== */
+
+/* 患者IDセル：ハンドル＋テキストのレイアウト */
+.patient-id-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ドラッグハンドル */
+.patient-drag-handle {
+  cursor: grab;
+  user-select: none;
+  color: #9ca3af;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.patient-drag-handle:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.patient-drag-handle:active {
+  cursor: grabbing;
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+/* 患者IDテキスト部分 */
+.patient-id-text {
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.patient-id-text:focus {
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, .12);
+  border-radius: 4px;
+}
+
+/* ドラッグ中のソースセル */
+.patient-id-cell.dragging {
+  opacity: 0.4;
+  background: #dbeafe !important;
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+}
+
+/* ドロップ先候補セル */
+.patient-id-cell.drag-over {
+  background: #bfdbfe !important;
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+}
