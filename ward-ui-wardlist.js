@@ -149,9 +149,12 @@
     el.textContent = parts.length ? parts.join(' / ') : '目標稼働率などの設定';
   }
 
-  function openDischargeParamsDialog(userId) {
-    const existing = document.getElementById('dischargeParamsModalOverlay');
-    if (existing) existing.remove();
+function openDischargeParamsDialog(userId) {
+    const existing = document.getElementById('dischargeParamsPopup');
+    if (existing) {
+      existing.remove();
+      return; // トグル動作：既に開いていれば閉じる
+    }
 
     const params = (() => {
       try {
@@ -170,19 +173,20 @@
       scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
     };
 
-    const overlay = document.createElement('div');
-    overlay.id = 'dischargeParamsModalOverlay';
-    overlay.className = 'modal-overlay';
+// 退院調整カードの右隣にポップアップ表示
+    const anchorCard = document.querySelector('.ward-header-card.discharge-params');
+    if (!anchorCard) return;
 
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.innerHTML = `
-      <div class="modal-head">
-        <h3 class="modal-title">退院調整（ALL）パラメータ</h3>
-        <button type="button" class="btn btn-outline" id="btnCloseDischargeParams">閉じる</button>
+    const popup = document.createElement('div');
+    popup.id = 'dischargeParamsPopup';
+    popup.className = 'discharge-params-popup';
+    popup.innerHTML = `
+      <div class="popup-head">
+        <h3 class="popup-title">退院調整パラメータ</h3>
+        <button type="button" class="btn btn-ghost popup-close" id="btnCloseDischargeParams">✕</button>
       </div>
 
-      <div class="modal-body">
+      <div class="popup-body">
         <div class="form-row">
           <label>目標稼働率（%）</label>
           <input id="dp_target_occ" type="number" min="0" max="100" step="1" value="${escapeHtml(String(Math.round(Number(current.target_occupancy || 0.85) * 100)))}" />
@@ -211,23 +215,31 @@
           <label>nurse_max</label>
           <input id="dp_nurse_max" type="number" min="0" max="50" step="1" value="${escapeHtml(String(current.risk_params?.nurse_max ?? 5))}" />
         </div>
-      </div>
+</div>
 
-      <div class="modal-foot">
-        <button type="button" class="btn" id="btnSaveDischargeParams">保存</button>
+      <div class="popup-foot">
+        <button type="button" class="btn btn-primary" id="btnSaveDischargeParams">保存</button>
       </div>
     `;
 
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
+    // 退院調整カードの右隣に配置
+    anchorCard.style.position = 'relative';
+    anchorCard.appendChild(popup);
 
-    function close() {
-      overlay.remove();
+function close() {
+      popup.remove();
     }
 
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close();
-    });
+    // 外側クリックで閉じる
+    setTimeout(() => {
+      const onDocClick = (e) => {
+        if (!popup.contains(e.target) && !anchorCard.contains(e.target)) {
+          close();
+          document.removeEventListener('click', onDocClick, true);
+        }
+      };
+      document.addEventListener('click', onDocClick, true);
+    }, 0);
 
     const closeBtn = document.getElementById('btnCloseDischargeParams');
     if (closeBtn) closeBtn.addEventListener('click', close);
