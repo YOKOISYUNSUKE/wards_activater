@@ -548,11 +548,7 @@ async function getSheetRows(userId, wardId) {
   const rec = await dbGetSheet(d, userId, wardId);
   const rows = rec?.rows;
   if (Array.isArray(rows) && rows.length) {
-    const norm = normalizeSheetRows(rows);
-    if (norm.changed) {
-      await dbPutSheet(d, userId, wardId, norm.rows);
-    }
-    return norm.rows;
+    return rows;
   }
   return makeEmptyRows(3);
 }
