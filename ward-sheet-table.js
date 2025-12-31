@@ -30,13 +30,14 @@
     setSheetRows,
   } = window.WardCore;
 
-  const {
-    openDpcPicker,
-    showBedTypeSelector,
-    applyBedType,
-    clearBedNo,
-    showNursingSelector,
-  } = window.WardFeatures;
+const {
+  openDpcPicker,
+  showBedTypeSelector,
+  applyBedType,
+  clearBedNo,
+  showNursingSelector,
+} = window.WardFeatures || {};
+
 
   function state() {
     window.BMWardState = window.BMWardState || {

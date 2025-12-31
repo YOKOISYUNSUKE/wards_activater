@@ -575,10 +575,22 @@ const constraints = {
     hard_no_discharge_weekdays: String(baseParamsAll?.hard_no_discharge_weekdays ?? '日'),
     weekday_weights: baseParamsAll?.weekday_weights || { '日': 10, '土': 6 },
     ER_avg: (Number.isFinite(erAvg) && erAvg > 0) ? erAvg : Number(baseParamsAll?.ER_avg ?? 2),
-    scoring_weights: baseParamsAll?.scoring_weights || { ... },
-    risk_params: baseParamsAll?.risk_params || { ... },
+    scoring_weights: baseParamsAll?.scoring_weights || {
+      w_dpc: 40,
+      w_cap: 35,
+      w_n: 10,
+      w_adj: 10,
+      w_wk: 10,
+      w_dev: 5,
+    },
+    risk_params: baseParamsAll?.risk_params || {
+      cap_th1: 0.85,
+      cap_th2: 0.95,
+      nurse_max: 5,
+    },
   }
 };
+
 
 
   try {
