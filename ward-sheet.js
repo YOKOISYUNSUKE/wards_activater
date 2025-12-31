@@ -148,7 +148,8 @@
     const btnClearSheet = document.getElementById('btnClearSheet');
     const btnDischargeOptimize = document.getElementById('btnDischargeOptimize');
     const sheetSearch = document.getElementById('sheetSearch');
-
+    const btnDischargeParams = document.getElementById('btnDischargeParams');
+    
     if (btnAddWard) {
       btnAddWard.addEventListener('click', () => {
         const session = loadSession();
@@ -180,6 +181,15 @@
         window.BMWardSheetTable?.applySearchAndSort?.();
       });
     }
+
+  if (btnDischargeParams) {
+    btnDischargeParams.addEventListener('click', () => {
+      const session = loadSession();
+      if (!session?.userId) return;
+      window.BMWardWardList?.openDischargeParamsDialog?.(session.userId);
+    });
+  }
+
 
     if (btnDischargeOptimize) {
       btnDischargeOptimize.addEventListener('click', async () => {

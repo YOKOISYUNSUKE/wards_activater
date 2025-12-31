@@ -433,6 +433,17 @@ body.has-hscroll {
   min-width: 260px;
 }
 
+/* 退院調整パラメータカード（病棟数カードと並べる） */
+.top-info-wrapper .discharge-params {
+  flex: 0 1 320px;
+  min-width: 280px;
+}
+
+.discharge-params-body {
+  margin-top: 8px;
+}
+
+
 /* KPIカード群のラッパー */
 .kpi-group {
   flex: 1 1 600px;
@@ -480,3 +491,275 @@ body.has-hscroll {
     min-width: 100%;
   }
 }
+}
+
+/* ==========================================================================
+   Topbar Cards Layout（病棟数調整カード・退院調整カード）
+   ========================================================================== */
+
+/* topbar-rightの構成を調整 */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ユーザー情報表示 */
+.topbar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-right: 1px solid var(--border);
+}
+
+.topbar-user-email {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* topbar内のカード群を横並びに */
+.topbar-cards {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+/* topbar用の病棟数カード */
+.topbar-wardcount {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  min-width: 140px;
+  box-shadow: 0 2px 8px rgba(17, 24, 39, .04);
+}
+
+.topbar-wardcount .wardcount-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.topbar-wardcount .wardcount-head > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topbar-wardcount .wardcount-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.topbar-wardcount .wardcount-sub {
+  margin: 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.topbar-wardcount .wardcount-badge {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+/* ログアウトボタンの位置調整 */
+.topbar-right .btn-ghost {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* レスポンシブ対応：画面幅が1024px以下の場合 */
+@media (max-width: 1024px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .topbar-right {
+    width: 100%;
+    justify-content: flex-end;
+    order: 2;
+  }
+
+  .topbar-user-info {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    width: 100%;
+    order: 1;
+  }
+
+  .topbar-cards {
+    gap: 8px;
+  }
+
+  .topbar-wardcount {
+    min-width: 120px;
+    padding: 8px 10px;
+  }
+}
+
+/* レスポンシブ対応：画面幅が768px以下の場合 */
+@media (max-width: 768px) {
+  .topbar-cards {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .topbar-wardcount {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .topbar-user-email {
+    max-width: 150px;
+  }
+}
+
+/* ==========================================================================
+   Ward Header Layout（病棟を選択カード内のヘッダー）
+   ========================================================================== */
+
+/* wardViewのヘッダー全体 */
+.ward-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+/* ヘッダー左側（タイトルとユーザー情報） */
+.ward-header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.ward-header-left .card-title {
+  margin: 0 0 10px;
+}
+
+.ward-header-left .muted {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ヘッダー右側（カード群） */
+.ward-header-right {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ヘッダー用の病棟数カード */
+.ward-header-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 140px;
+  box-shadow: 0 2px 8px rgba(17, 24, 39, .04);
+}
+
+.ward-header-card .wardcount-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.ward-header-card .wardcount-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ward-header-card .wardcount-actions .btn {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ward-header-card .wardcount-head > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ward-header-card .wardcount-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.ward-header-card .wardcount-sub {
+  margin: 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.ward-header-card .wardcount-badge {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+/* レスポンシブ対応：画面幅が1024px以下の場合 */
+@media (max-width: 1024px) {
+  .ward-header-top {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ward-header-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ward-header-card {
+    min-width: 130px;
+    padding: 8px 10px;
+  }
+}
+
+/* レスポンシブ対応：画面幅が768px以下の場合 */
+@media (max-width: 768px) {
+  .ward-header-right {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .ward-header-card {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .ward-header-top {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+}
+

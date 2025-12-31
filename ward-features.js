@@ -564,17 +564,22 @@ function runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg, onDateSele
   const erRaw = (userId && wardId) ? getErEstimate(userId, wardId, asOfDate) : '';
   const erAvg = erRaw ? Number(erRaw) : 2;
   const plannedAdmissions = (userId && wardId) ? getPlannedAdmissions(userId, wardId) : [];
-  const constraints = {
-    ALL: {
-      beds: sheetAllRows.length,
-      target_occupancy: 0.85,
-      hard_no_discharge_weekdays: '日',
-      weekday_weights: { '日': 10, '土': 6 },
-      ER_avg: (Number.isFinite(erAvg) && erAvg > 0) ? erAvg : 2,
-      scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
-      risk_params: { cap_th1: 0.85, cap_th2: 0.95, nurse_max: 5 },
-    }
-  };
+const baseParamsAll = (userId && window.WardCore?.getDischargeParamsAll)
+  ? window.WardCore.getDischargeParamsAll(userId)
+  : null;
+
+const constraints = {
+  ALL: {
+    beds: sheetAllRows.length,
+    target_occupancy: Number(baseParamsAll?.target_occupancy ?? 0.85),
+    hard_no_discharge_weekdays: String(baseParamsAll?.hard_no_discharge_weekdays ?? '日'),
+    weekday_weights: baseParamsAll?.weekday_weights || { '日': 10, '土': 6 },
+    ER_avg: (Number.isFinite(erAvg) && erAvg > 0) ? erAvg : Number(baseParamsAll?.ER_avg ?? 2),
+    scoring_weights: baseParamsAll?.scoring_weights || { ... },
+    risk_params: baseParamsAll?.risk_params || { ... },
+  }
+};
+
 
   try {
     const rawRecs = WOI.buildRecommendations(patients, {

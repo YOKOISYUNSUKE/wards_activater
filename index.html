@@ -61,32 +61,48 @@
 
 <!-- Ward Select Card -->
 <section id="wardView" class="card hidden">
-  <h2 class="card-title">病棟を選択</h2>
-
-<p class="muted">
-  ログイン中：<span id="currentUser"></span><br>
-  本日（日本時間）：<span id="todayJst"></span>
-</p>
-
-<h3 class="sheet-subtitle" style="margin-top:10px;">病院全体KPI（全病棟合算）</h3>
-
-<!-- 病棟数選択とKPIカードを横並びにするラッパー -->
-<div class="top-info-wrapper">
-  <!-- 病棟数選択カード -->
-  <div class="wardcount">
-    <div class="wardcount-head">
-      <div>
-        <p class="wardcount-title">病棟</p>
-        <p class="wardcount-sub">最大20</p>
-      </div>
-      <div id="wardCountLabel" class="wardcount-badge">-</div>
+  <div class="ward-header-top">
+    <div class="ward-header-left">
+      <h2 class="card-title">病棟を選択</h2>
+      <p class="muted">
+        ログイン中：<span id="currentUser"></span><br>
+        本日（日本時間）：<span id="todayJst"></span>
+      </p>
     </div>
-
-    <div class="wardcount-actions">
-      <button id="btnAddWard" class="btn btn-outline" type="button">＋ 病棟を追加</button>
+    <div class="ward-header-right">
+      <!-- 病棟数選択カード（ヘッダー用） -->
+      <div class="ward-header-card wardcount">
+        <div class="wardcount-head">
+          <div>
+            <p class="wardcount-title">病棟数</p>
+            <p class="wardcount-sub">最大20</p>
+          </div>
+          <div id="wardCountLabelHeader" class="wardcount-badge">-</div>
+        </div>
+        <div class="wardcount-actions">
+          <button id="btnAddWard" class="btn btn-outline" type="button">＋ 病棟を追加</button>
+        </div>
+      </div>
+      <!-- 退院調整カード（ヘッダー用） -->
+      <div class="ward-header-card wardcount discharge-params" aria-label="退院調整パラメータ">
+        <div class="wardcount-head">
+          <div>
+            <p class="wardcount-title">退院調整</p>
+            <p class="wardcount-sub">全病棟共通</p>
+          </div>
+          <div class="wardcount-badge" aria-hidden="true">⚙</div>
+        </div>
+        <div class="wardcount-actions">
+          <button id="btnDischargeParams" class="btn btn-outline" type="button">設定</button>
+        </div>
+      </div>
     </div>
   </div>
 
+  <h3 class="sheet-subtitle" style="margin-top:10px;">病院全体KPI（全病棟合算）</h3>
+
+<!-- 病棟数選択とKPIカードを横並びにするラッパー -->
+<div class="top-info-wrapper">
   <!-- KPIカード群 -->
   <div class="kpi-group">
     <div class="kpi-row-bar" aria-label="病院全体KPI">

@@ -15,7 +15,10 @@
     defaultWardName,
     deleteSheetRows,
     loadSession,
+    getDischargeParamsAll,
+    setDischargeParamsAll,
   } = window.WardCore;
+
 
   function getDom() {
     return {
@@ -120,9 +123,154 @@
     renderWardButtons(userId);
   }
 
+  function updateDischargeParamsCard(userId) {
+    const el = document.getElementById('dischargeParamsSummary');
+    if (!el) return;
+
+    let params = null;
+    try {
+      params = getDischargeParamsAll?.(userId) || null;
+    } catch (e) {
+      params = null;
+    }
+
+    if (!params) {
+      el.textContent = '目標稼働率などの設定（未設定）';
+      return;
+    }
+
+    const occ = Number(params.target_occupancy);
+    const occPct = Number.isFinite(occ) ? Math.round(occ * 100) : null;
+    const noDis = (params.hard_no_discharge_weekdays || '').trim();
+
+    const parts = [];
+    if (occPct !== null) parts.push(`目標稼働率 ${occPct}%`);
+    if (noDis) parts.push(`退院不可 ${noDis}`);
+    el.textContent = parts.length ? parts.join(' / ') : '目標稼働率などの設定';
+  }
+
+  function openDischargeParamsDialog(userId) {
+    const existing = document.getElementById('dischargeParamsModalOverlay');
+    if (existing) existing.remove();
+
+    const params = (() => {
+      try {
+        return getDischargeParamsAll?.(userId) || null;
+      } catch (e) {
+        return null;
+      }
+    })();
+
+    const current = params || {
+      target_occupancy: 0.85,
+      hard_no_discharge_weekdays: '日',
+      weekday_weights: { '日': 10, '土': 6 },
+      ER_avg: 2,
+      risk_params: { cap_th1: 0.85, cap_th2: 0.95, nurse_max: 5 },
+      scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
+    };
+
+    const overlay = document.createElement('div');
+    overlay.id = 'dischargeParamsModalOverlay';
+    overlay.className = 'modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-head">
+        <h3 class="modal-title">退院調整（ALL）パラメータ</h3>
+        <button type="button" class="btn btn-outline" id="btnCloseDischargeParams">閉じる</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-row">
+          <label>目標稼働率（%）</label>
+          <input id="dp_target_occ" type="number" min="0" max="100" step="1" value="${escapeHtml(String(Math.round(Number(current.target_occupancy || 0.85) * 100)))}" />
+        </div>
+
+        <div class="form-row">
+          <label>退院不可曜日（例：日 / 日,土 / 空欄=なし）</label>
+          <input id="dp_no_dis" type="text" value="${escapeHtml(String(current.hard_no_discharge_weekdays || ''))}" />
+        </div>
+
+        <div class="form-row">
+          <label>ER平均（/日）</label>
+          <input id="dp_er_avg" type="number" min="0" max="50" step="0.1" value="${escapeHtml(String(current.ER_avg ?? 2))}" />
+        </div>
+
+        <div class="form-row">
+          <label>逼迫閾値 cap_th1 / cap_th2</label>
+          <div class="form-inline">
+            <input id="dp_cap_th1" type="number" min="0" max="1" step="0.01" value="${escapeHtml(String(current.risk_params?.cap_th1 ?? 0.85))}" />
+            <span class="muted">/</span>
+            <input id="dp_cap_th2" type="number" min="0" max="1" step="0.01" value="${escapeHtml(String(current.risk_params?.cap_th2 ?? 0.95))}" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>nurse_max</label>
+          <input id="dp_nurse_max" type="number" min="0" max="50" step="1" value="${escapeHtml(String(current.risk_params?.nurse_max ?? 5))}" />
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button type="button" class="btn" id="btnSaveDischargeParams">保存</button>
+      </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    function close() {
+      overlay.remove();
+    }
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();
+    });
+
+    const closeBtn = document.getElementById('btnCloseDischargeParams');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+
+    const saveBtn = document.getElementById('btnSaveDischargeParams');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const occPct = Number(document.getElementById('dp_target_occ')?.value);
+        const noDis = String(document.getElementById('dp_no_dis')?.value || '').trim();
+        const erAvg = Number(document.getElementById('dp_er_avg')?.value);
+        const capTh1 = Number(document.getElementById('dp_cap_th1')?.value);
+        const capTh2 = Number(document.getElementById('dp_cap_th2')?.value);
+        const nurseMax = Number(document.getElementById('dp_nurse_max')?.value);
+
+        const nextParams = {
+          ...current,
+          target_occupancy: Number.isFinite(occPct) ? Math.max(0, Math.min(1, occPct / 100)) : current.target_occupancy,
+          hard_no_discharge_weekdays: noDis,
+          ER_avg: Number.isFinite(erAvg) ? Math.max(0, erAvg) : current.ER_avg,
+          risk_params: {
+            ...(current.risk_params || {}),
+            cap_th1: Number.isFinite(capTh1) ? Math.max(0, Math.min(1, capTh1)) : current.risk_params?.cap_th1,
+            cap_th2: Number.isFinite(capTh2) ? Math.max(0, Math.min(1, capTh2)) : current.risk_params?.cap_th2,
+            nurse_max: Number.isFinite(nurseMax) ? Math.max(0, nurseMax) : current.risk_params?.nurse_max,
+          },
+        };
+
+        try {
+          await setDischargeParamsAll?.(userId, nextParams);
+          setWardMsg('退院調整（ALL）パラメータを保存しました。');
+          updateDischargeParamsCard(userId);
+          close();
+        } catch (e) {
+          setWardMsg('保存に失敗しました。', true);
+        }
+      });
+    }
+  }
+
   function renderWardButtons(userId) {
     const { wardGrid, currentUser } = getDom();
     if (!wardGrid) return;
+
 
     if (!userId) {
       wardGrid.innerHTML = '';
@@ -186,7 +334,9 @@
     if (currentUser) currentUser.textContent = displayUser;
 
     updateWardCountBadge(userId);
+    updateDischargeParamsCard(userId);
   }
+
 
 
   window.BMWardWardList = {
@@ -195,6 +345,9 @@
     renameWardForUser,
     deleteWardForUser,
     updateWardCountBadge,
+    openDischargeParamsDialog,
+    updateDischargeParamsCard,
   };
+
 
 })();

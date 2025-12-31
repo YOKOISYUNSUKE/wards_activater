@@ -14,6 +14,8 @@ const KEY_WARDS = 'bm_wards_v1';
 const KEY_PLANNED_ADMISSIONS_PREFIX = 'bm_planned_admissions_v1';
 const KEY_ER_ESTIMATE_PREFIX = 'bm_er_estimate_v1';
 const KEY_WARD_TRANSFERS_PREFIX = 'bm_ward_transfers_v1';
+const KEY_DISCHARGE_PARAMS_ALL_PREFIX = 'bm_discharge_params_all_v1';
+
 
 // ===== Session =====
 // Supabase移行後も、既存UI（病棟一覧/病棟シート）が bm_session_v1 を参照するため保持する
@@ -125,14 +127,101 @@ function saveObj(key, obj) {
   localStorage.setItem(key, JSON.stringify(obj));
 }
 
+
+// ===== 退院調整（ALL）パラメータ =====
+function dischargeParamsAllKey(userId) {
+  return `${KEY_DISCHARGE_PARAMS_ALL_PREFIX}|${userId}`;
+}
+
+function defaultDischargeParamsAll() {
+  return {
+    target_occupancy: 0.85,
+    hard_no_discharge_weekdays: '日',
+    weekday_weights: { '日': 10, '土': 6 },
+    ER_avg: 2,
+    scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
+    risk_params: { cap_th1: 0.85, cap_th2: 0.95, nurse_max: 5 },
+  };
+}
+
+function normalizeDischargeParamsAll(raw) {
+  const d = defaultDischargeParamsAll();
+  const src = (raw && typeof raw === 'object') ? raw : {};
+
+  const target_occupancy = Number(src.target_occupancy);
+  const hard_no_discharge_weekdays = String(src.hard_no_discharge_weekdays ?? d.hard_no_discharge_weekdays);
+
+  const weekday_weights = (src.weekday_weights && typeof src.weekday_weights === 'object')
+    ? src.weekday_weights
+    : d.weekday_weights;
+
+  const ER_avg = Number(src.ER_avg);
+
+  const scoring_weights = (src.scoring_weights && typeof src.scoring_weights === 'object')
+    ? src.scoring_weights
+    : d.scoring_weights;
+
+  const risk_params = (src.risk_params && typeof src.risk_params === 'object')
+    ? src.risk_params
+    : d.risk_params;
+
+  return {
+    target_occupancy: Number.isFinite(target_occupancy) ? target_occupancy : d.target_occupancy,
+    hard_no_discharge_weekdays,
+    weekday_weights,
+    ER_avg: Number.isFinite(ER_avg) ? ER_avg : d.ER_avg,
+    scoring_weights,
+    risk_params,
+  };
+}
+
+function getDischargeParamsAll(userId) {
+  if (!userId) return defaultDischargeParamsAll();
+  const key = dischargeParamsAllKey(userId);
+  const raw = loadObj(key, null);
+  if (!raw) return defaultDischargeParamsAll();
+  return normalizeDischargeParamsAll(raw);
+}
+
+function setDischargeParamsAll(userId, params, options) {
+  if (!userId) return;
+  const key = dischargeParamsAllKey(userId);
+  const normalized = normalizeDischargeParamsAll(params);
+  saveObj(key, normalized);
+
+  const skipCloud = options?.skipCloud;
+  if (!skipCloud) {
+    scheduleCloud(async () => {
+      await cloudUpsertUserState(String(userId), { dischargeParamsAll: normalized });
+    }, `user:${userId}:dischargeParamsAll`);
+  }
+}
+
+
 // ===== Cloud I/O =====
-async function cloudUpsertUserState(uid, data) {
+async function cloudUpsertUserState(uid, partialData) {
   const c = cloudClient();
   if (!c || !uid) return;
 
+  // 既存 data を取得してマージ（部分更新で他キーを消さない）
+  let existingData = {};
+  try {
+    const res0 = await c
+      .from(CLOUD_TABLE_USER_STATE)
+      .select('data')
+      .eq('user_id', uid)
+      .maybeSingle();
+    if (res0?.data?.data) existingData = res0.data.data;
+  } catch { /* 新規の場合は空 */ }
+
+  const mergedData = { ...existingData };
+  Object.entries(partialData || {}).forEach(([k, v]) => {
+    if (v !== null) mergedData[k] = v;
+  });
+
   const res = await c.from(CLOUD_TABLE_USER_STATE).upsert({
     user_id: uid,
-    data,
+    data: mergedData,
     updated_at: new Date().toISOString()
   });
 
@@ -140,6 +229,7 @@ async function cloudUpsertUserState(uid, data) {
     console.warn('cloudUpsertUserState failed', res.error);
   }
 }
+
 
 
 
@@ -261,11 +351,25 @@ async function cloudSyncDownAll() {
       (wardsRaw && !Array.isArray(wardsRaw) && typeof wardsRaw === 'object') ||
       (transfersRaw && !Array.isArray(transfersRaw) && typeof transfersRaw === 'object');
 
-    if (needsMigrate) {
-      scheduleCloud(async () => {
-        await cloudUpsertUserState(uid, { wards: wardsList, transfers: transfersList });
-      }, `user:${uid}:migrate`);
-    }
+// 退院調整（ALL）パラメータ
+if (u.data.dischargeParamsAll) {
+  setDischargeParamsAll(uid, u.data.dischargeParamsAll, { skipCloud: true });
+} else {
+  // クラウドに未設定なら、ローカルがあればそれを、なければデフォルトを用意してクラウドへ反映
+  const localAll = loadObj(dischargeParamsAllKey(uid), null);
+  const useAll = localAll ? normalizeDischargeParamsAll(localAll) : defaultDischargeParamsAll();
+  setDischargeParamsAll(uid, useAll, { skipCloud: true });
+  scheduleCloud(async () => {
+    await cloudUpsertUserState(uid, { dischargeParamsAll: useAll });
+  }, `user:${uid}:dischargeParamsAll:init`);
+}
+
+if (needsMigrate) {
+  scheduleCloud(async () => {
+    const dischargeParamsAll = getDischargeParamsAll(uid);
+    await cloudUpsertUserState(uid, { wards: wardsList, transfers: transfersList, dischargeParamsAll });
+  }, `user:${uid}:migrate`);
+}
   } else {
     // 新規ユーザー or クラウドにデータなし: デフォルト病棟がなければ作成
     const existing = loadObj(KEY_WARDS, {});
@@ -276,9 +380,11 @@ async function cloudSyncDownAll() {
 
     // bm_user_state が未作成の場合、ローカル状態をクラウドへ初期保存しておく
     try {
-      const wards = getWardsForUser(uid);
-      const transfers = getWardTransfers(uid);
-      await cloudUpsertUserState(uid, { wards, transfers });
+const wards = getWardsForUser(uid);
+const transfers = getWardTransfers(uid);
+const dischargeParamsAll = getDischargeParamsAll(uid);
+await cloudUpsertUserState(uid, { wards, transfers, dischargeParamsAll });
+
     } catch (e) {
       console.warn('cloudSyncDownAll initial user_state upsert failed', e);
     }
@@ -602,10 +708,12 @@ function setWardsForUser(userId, wards) {
   all[userId] = wards;
   saveAllWards(all);
 
-  scheduleCloud(async () => {
-    const transfers = getWardTransfers(userId);
-    await cloudUpsertUserState(userId, { wards, transfers }); 
-  });
+scheduleCloud(async () => {
+  const transfers = getWardTransfers(userId);
+  const dischargeParamsAll = getDischargeParamsAll(userId);
+  await cloudUpsertUserState(userId, { wards, transfers, dischargeParamsAll }); 
+});
+
 }
 
 // ===== グローバル公開 =====
@@ -661,6 +769,10 @@ window.WardCore = {
   setWardTransfers,
   getWardTransfersForWard,
   cloudSyncDownAll,
+  getDischargeParamsAll,
+  setDischargeParamsAll,
+  defaultDischargeParamsAll,
+
 
 };
 
