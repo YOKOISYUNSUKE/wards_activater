@@ -143,9 +143,9 @@ async function cloudUpsertUserState(uid, data) {
 
 
 
-async function cloudUpsertWardState(wardId, partialData) {
+async function cloudUpsertWardState(wardId, partialData, uidOverride) {
   const c = cloudClient();
-  const uid = await cloudUid();
+  const uid = uidOverride || await cloudUid();
   if (!c || !uid || !wardId) return;
 
   // 既存データを取得してマージ
@@ -530,14 +530,17 @@ async function setSheetRows(userId, wardId, rows, options) {
   const opt = options || {};
   if (opt.skipCloud) return;
 
+  const uid = await cloudUid();
+  if (!uid || !wardId) return;
+
   scheduleCloud(async () => {
     const payload = {
       sheetRows: rows,
       plannedAdmissions: null,
       erEstimateByDate: null
     };
-    await cloudUpsertWardState(wardId, payload);
-  }, `ward:${userId}:${wardId}:sheetRows`);
+    await cloudUpsertWardState(wardId, payload, uid);
+  }, `ward:${uid}:${wardId}:sheetRows`);
 }
 
 // NOTE: setSheetRows は上で定義済み（クラウド同期あり）。
