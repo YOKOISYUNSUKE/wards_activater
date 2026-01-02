@@ -111,10 +111,23 @@
       </thead>
       <tbody>
         ${items.map((row, idx) => `
-          <tr>
-            <td>
-              <input class="plan-cell plan-id-clickable" value="${escapeHtml(row.id || '')}" data-i="${idx}" data-k="id" readonly title="クリックで病棟シートに移動" style="cursor:pointer; color:#2563eb; text-decoration:underline;">
-            </td>
+<tr>
+  <td>
+<div style="display:flex; gap:6px; align-items:center;">
+  <input class="plan-cell"
+    value="${escapeHtml(row.id || '')}"
+    data-i="${idx}" data-k="id"
+    placeholder="患者ID">
+
+  <button class="btn btn-outline btn-sm"
+    type="button"
+    data-admit="${idx}"
+    title="病棟シートに入院登録">
+    入院
+  </button>
+</div>
+
+
             <td><input class="plan-cell" value="${escapeHtml(row.disease || '')}" data-i="${idx}" data-k="disease"></td>
             <td><input type="date" class="plan-cell" value="${escapeHtml(row.date || '')}" data-i="${idx}" data-k="date"></td>
             <td><input type="number" class="plan-cell" min="1" value="${escapeHtml(row.days || '')}" data-i="${idx}" data-k="days"></td>
@@ -473,13 +486,15 @@ refreshWardTransfersUi();
     }
 
     // ★ 予定入院患者IDクリック → 病棟シートに移動
-    plannedAdmissionsTable?.addEventListener('click', async (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLInputElement)) return;
-      if (!t.classList.contains('plan-id-clickable')) return;
+plannedAdmissionsTable?.addEventListener('click', async (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLElement)) return;
 
-      const idx = Number(t.getAttribute('data-i'));
-      if (!Number.isFinite(idx) || idx < 0) return;
+  const admit = t.getAttribute('data-admit');
+  if (admit === null) return;
+
+  const idx = Number(admit);
+  if (Number.isNaN(idx)) return;
 
       const { userId, wardId } = getActiveUserWard();
       if (!userId || !wardId) return;
