@@ -95,7 +95,7 @@
     return { userId, wardId };
   }
 
-  function renderPlannedAdmissionsTable(items) {
+function renderPlannedAdmissionsTable(items) {
     const { plannedAdmissionsTable } = dom();
     if (!plannedAdmissionsTable) return;
 
@@ -111,23 +111,22 @@
       </thead>
       <tbody>
         ${items.map((row, idx) => `
-<tr>
-  <td>
-<div style="display:flex; gap:6px; align-items:center;">
-  <input class="plan-cell"
-    value="${escapeHtml(row.id || '')}"
-    data-i="${idx}" data-k="id"
-    placeholder="患者ID">
+          <tr>
+            <td>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <input class="plan-cell"
+                  value="${escapeHtml(row.id || '')}"
+                  data-i="${idx}" data-k="id"
+                  placeholder="患者ID">
 
-  <button class="btn btn-outline btn-sm"
-    type="button"
-    data-admit="${idx}"
-    title="病棟シートに入院登録">
-    入院
-  </button>
-</div>
-
-
+                <button class="btn btn-outline btn-sm"
+                  type="button"
+                  data-admit="${idx}"
+                  title="病棟シートに入院登録">
+                  入院
+                </button>
+              </div>
+            </td>
             <td><input class="plan-cell" value="${escapeHtml(row.disease || '')}" data-i="${idx}" data-k="disease"></td>
             <td><input type="date" class="plan-cell" value="${escapeHtml(row.date || '')}" data-i="${idx}" data-k="date"></td>
             <td><input type="number" class="plan-cell" min="1" value="${escapeHtml(row.days || '')}" data-i="${idx}" data-k="days"></td>
@@ -434,6 +433,46 @@ refreshWardTransfersUi();
     if (erEstimateMsg) erEstimateMsg.textContent = '';
   }
 
+  // 予定入院：DOM上の入力値を優先して取得（再描画やボタンクリックで入力途中の値が消えるのを防ぐ）
+  // NOTE: 画面上の行インデックス（data-i）と整合させるため、空行も含めて「密な配列」で返す。
+  function getPlannedAdmissionsFromDom(userId, wardId) {
+    const { plannedAdmissionsTable } = dom();
+    if (!plannedAdmissionsTable) return getPlannedAdmissions(userId, wardId);
+
+    const rows = [];
+    let maxIdx = -1;
+
+    plannedAdmissionsTable.querySelectorAll('input.plan-cell').forEach((inp) => {
+      if (!(inp instanceof HTMLInputElement)) return;
+      const idx = Number(inp.getAttribute('data-i'));
+      const key = inp.getAttribute('data-k');
+      if (!Number.isFinite(idx) || idx < 0 || !key) return;
+
+      maxIdx = Math.max(maxIdx, idx);
+
+      if (!rows[idx]) rows[idx] = { id: '', disease: '', date: '', days: '' };
+      rows[idx][key] = (inp.value ?? '').trim();
+    });
+
+    // data-i の最大まで穴埋め（map時に row が undefined にならないように）
+    for (let i = 0; i <= maxIdx; i++) {
+      if (!rows[i]) rows[i] = { id: '', disease: '', date: '', days: '' };
+    }
+
+    return rows;
+  }
+
+  function compactPlannedAdmissions(list) {
+    const src = Array.isArray(list) ? list : [];
+    return src.filter((x) => {
+      const id = String(x?.id ?? '').trim();
+      const disease = String(x?.disease ?? '').trim();
+      const date = String(x?.date ?? '').trim();
+      const days = String(x?.days ?? '').trim();
+      return id || disease || date || days;
+    });
+  }
+
   function initPlanInputs() {
     const {
       plannedAdmissionsTable,
@@ -448,7 +487,7 @@ refreshWardTransfersUi();
         const { userId, wardId } = getActiveUserWard();
         if (!userId || !wardId) return;
 
-        const list = getPlannedAdmissions(userId, wardId);
+        const list = getPlannedAdmissionsFromDom(userId, wardId);
 
         if (list.length >= 20) {
           if (plannedAdmissionsMsg) {
@@ -458,8 +497,10 @@ refreshWardTransfersUi();
           return;
         }
 
+        // 追加前に、入力途中も含めて現在値を確実に保存（空行は保存しない）
+        setPlannedAdmissions(userId, wardId, compactPlannedAdmissions(list));
+
         list.push({ id: '', disease: '', date: '', days: '' });
-        setPlannedAdmissions(userId, wardId, list);
         renderPlannedAdmissionsTable(list);
 
         if (plannedAdmissionsMsg) {
@@ -499,7 +540,7 @@ plannedAdmissionsTable?.addEventListener('click', async (e) => {
       const { userId, wardId } = getActiveUserWard();
       if (!userId || !wardId) return;
 
-      const list = getPlannedAdmissions(userId, wardId);
+      const list = getPlannedAdmissionsFromDom(userId, wardId);
       const planned = list[idx];
       if (!planned || !planned.id) {
         if (plannedAdmissionsMsg) {
@@ -545,7 +586,7 @@ plannedAdmissionsTable?.addEventListener('click', async (e) => {
 
       // 予定入院リストから削除
       list.splice(idx, 1);
-      setPlannedAdmissions(userId, wardId, list);
+      setPlannedAdmissions(userId, wardId, compactPlannedAdmissions(list));
 
       // UI更新
       renderPlannedAdmissionsTable(list);
@@ -572,13 +613,36 @@ plannedAdmissionsTable?.addEventListener('click', async (e) => {
       const { userId, wardId } = getActiveUserWard();
       if (!userId || !wardId) return;
 
-      const list = getPlannedAdmissions(userId, wardId);
-      if (!list[idx]) return;
+      const list = getPlannedAdmissionsFromDom(userId, wardId);
+      if (!list[idx]) list[idx] = { id: '', disease: '', date: '', days: '' };
 
-      const val = t.type === 'number' ? t.value : t.value;
+      const val = t.value;
       list[idx] = { ...list[idx], [key]: val };
 
-      setPlannedAdmissions(userId, wardId, list);
+      setPlannedAdmissions(userId, wardId, compactPlannedAdmissions(list));
+      if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '保存しました';
+    });
+
+    // date入力はブラウザによって input が発火しないことがあるので change も拾う
+    plannedAdmissionsTable?.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      if (!t.classList.contains('plan-cell')) return;
+      if (t.classList.contains('plan-id-clickable')) return;
+
+      const idx = Number(t.getAttribute('data-i'));
+      const key = t.getAttribute('data-k');
+      if (!Number.isFinite(idx) || idx < 0 || !key) return;
+
+      const { userId, wardId } = getActiveUserWard();
+      if (!userId || !wardId) return;
+
+      const list = getPlannedAdmissionsFromDom(userId, wardId);
+      if (!list[idx]) list[idx] = { id: '', disease: '', date: '', days: '' };
+
+      list[idx] = { ...list[idx], [key]: t.value };
+      setPlannedAdmissions(userId, wardId, compactPlannedAdmissions(list));
+
       if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '保存しました';
     });
 
@@ -594,9 +658,9 @@ plannedAdmissionsTable?.addEventListener('click', async (e) => {
       const { userId, wardId } = getActiveUserWard();
       if (!userId || !wardId) return;
 
-      const list = getPlannedAdmissions(userId, wardId);
+      const list = getPlannedAdmissionsFromDom(userId, wardId);
       list.splice(idx, 1);
-      setPlannedAdmissions(userId, wardId, list);
+      setPlannedAdmissions(userId, wardId, compactPlannedAdmissions(list));
       renderPlannedAdmissionsTable(list);
       if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '削除しました';
     });
