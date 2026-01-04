@@ -575,6 +575,7 @@ const constraints = {
     hard_no_discharge_weekdays: String(baseParamsAll?.hard_no_discharge_weekdays ?? '日'),
     weekday_weights: baseParamsAll?.weekday_weights || { '日': 10, '土': 6 },
     ER_avg: (Number.isFinite(erAvg) && erAvg > 0) ? erAvg : Number(baseParamsAll?.ER_avg ?? 2),
+    fluctuation_limit: Number(baseParamsAll?.fluctuation_limit ?? 3),
     scoring_weights: baseParamsAll?.scoring_weights || {
       w_dpc: 40,
       w_cap: 35,

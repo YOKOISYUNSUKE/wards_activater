@@ -203,6 +203,11 @@ function openDischargeParamsDialog(userId) {
         </div>
 
         <div class="form-row">
+          <label>変動数（入院患者数の変動許容範囲：人）</label>
+          <input id="dp_fluctuation" type="number" min="0" max="20" step="1" value="${escapeHtml(String(current.fluctuation_limit ?? 3))}" />
+        </div>
+
+        <div class="form-row">
           <label>逼迫閾値 cap_th1 / cap_th2</label>
           <div class="form-inline">
             <input id="dp_cap_th1" type="number" min="0" max="1" step="0.01" value="${escapeHtml(String(current.risk_params?.cap_th1 ?? 0.85))}" />
@@ -250,6 +255,7 @@ function close() {
         const occPct = Number(document.getElementById('dp_target_occ')?.value);
         const noDis = String(document.getElementById('dp_no_dis')?.value || '').trim();
         const erAvg = Number(document.getElementById('dp_er_avg')?.value);
+        const fluctuation = Number(document.getElementById('dp_fluctuation')?.value);
         const capTh1 = Number(document.getElementById('dp_cap_th1')?.value);
         const capTh2 = Number(document.getElementById('dp_cap_th2')?.value);
         const nurseMax = Number(document.getElementById('dp_nurse_max')?.value);
@@ -259,6 +265,7 @@ function close() {
           target_occupancy: Number.isFinite(occPct) ? Math.max(0, Math.min(1, occPct / 100)) : current.target_occupancy,
           hard_no_discharge_weekdays: noDis,
           ER_avg: Number.isFinite(erAvg) ? Math.max(0, erAvg) : current.ER_avg,
+          fluctuation_limit: Number.isFinite(fluctuation) ? Math.max(0, Math.min(20, fluctuation)) : current.fluctuation_limit,
           risk_params: {
             ...(current.risk_params || {}),
             cap_th1: Number.isFinite(capTh1) ? Math.max(0, Math.min(1, capTh1)) : current.risk_params?.cap_th1,

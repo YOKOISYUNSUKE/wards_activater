@@ -139,6 +139,7 @@ function defaultDischargeParamsAll() {
     hard_no_discharge_weekdays: '日',
     weekday_weights: { '日': 10, '土': 6 },
     ER_avg: 2,
+    fluctuation_limit: 3,  // 入院患者数の変動許容範囲（人）
     scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
     risk_params: { cap_th1: 0.85, cap_th2: 0.95, nurse_max: 5 },
   };
@@ -156,6 +157,7 @@ function normalizeDischargeParamsAll(raw) {
     : d.weekday_weights;
 
   const ER_avg = Number(src.ER_avg);
+  const fluctuation_limit = Number(src.fluctuation_limit);
 
   const scoring_weights = (src.scoring_weights && typeof src.scoring_weights === 'object')
     ? src.scoring_weights
@@ -170,6 +172,7 @@ function normalizeDischargeParamsAll(raw) {
     hard_no_discharge_weekdays,
     weekday_weights,
     ER_avg: Number.isFinite(ER_avg) ? ER_avg : d.ER_avg,
+    fluctuation_limit: Number.isFinite(fluctuation_limit) ? fluctuation_limit : d.fluctuation_limit,
     scoring_weights,
     risk_params,
   };

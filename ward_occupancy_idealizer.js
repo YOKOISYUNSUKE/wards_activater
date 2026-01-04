@@ -338,6 +338,13 @@ function generateCandidateDates(patient, { settings, dpcMaster, constraints, asO
     const deviation = Math.abs(offset);
     const F_ops = deviation * 2;
 
+    // 変動数ペナルティ（変動許容範囲を超える場合）
+    const fluctuation_limit = Number(wardConstraints.fluctuation_limit ?? 3);
+    let P_fluctuation = 0;
+    if (Math.abs(offset) > fluctuation_limit) {
+      P_fluctuation = (Math.abs(offset) - fluctuation_limit) * 5;
+    }
+
     // 緊急入院吸収余力（gas.gs: (1-occ) * ER_avg * 20）
     const ER_avg = Number(wardConstraints.ER_avg ?? 0);
     const F_er = Math.round((1 - occupancyRate) * ER_avg * 20);
@@ -356,7 +363,8 @@ function generateCandidateDates(patient, { settings, dpcMaster, constraints, asO
       w_n * F_acu -
       w_adj * (P_risk / 100) * 10 -
       w_wk * P_hard -
-      w_dev * (F_ops / 100) * 5;
+      w_dev * (F_ops / 100) * 5 -
+      P_fluctuation;
 
     // ハード制約：退院不可曜日
     let hard_ng_reason = '';
@@ -382,6 +390,7 @@ function generateCandidateDates(patient, { settings, dpcMaster, constraints, asO
       F_er,
       P_risk,
       P_hard,
+      P_fluctuation,
 
       // 参考
       occupancyRate,
