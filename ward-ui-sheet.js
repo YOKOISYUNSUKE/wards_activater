@@ -845,7 +845,7 @@ plannedAdmissionsTable?.addEventListener('click', async (e) => {
   }
 
 // （sendToWardTransfer関数を追加し、エクスポートに含める）
-  function sendToWardTransfer(patientId, rowIdx) {
+  async function sendToWardTransfer(patientId, rowIdx) {
     const { wardTransfersMsg } = dom();
     const { userId, wardId } = getActiveUserWard();
     if (!userId || !wardId) {
@@ -876,6 +876,26 @@ plannedAdmissionsTable?.addEventListener('click', async (e) => {
       updatedAt: new Date().toISOString(),
     });
     setWardTransfers(userId, all);
+
+    // ★ 患者シートから該当行をクリア
+    const st = state();
+    if (Array.isArray(st.sheetAllRows) && st.sheetAllRows[rowIdx]) {
+      // 行の全セルをクリア（ベッドNo以外）
+      const row = st.sheetAllRows[rowIdx];
+      for (let c = 0; c < row.length; c++) {
+        if (c === 0) continue; // COL_BED_NO（0）は保持
+        row[c] = '';
+      }
+
+      // 保存
+      await setSheetRows(userId, wardId, st.sheetAllRows);
+
+      // UI更新
+      window.BMWardSheetTable?.applySearchAndSort?.();
+      updateKpiUI();
+    }
+
+
 
     // UI更新
     refreshWardTransfersUi();
