@@ -192,7 +192,7 @@ function ensureWardTransfersUi() {
     wardTransfersTable.innerHTML = `
       <thead>
         <tr>
-          <th>ID</th>
+          <th>ID <span style="font-weight:400;font-size:11px;color:#6b7280;">（クリックでシートへ）</span></th>
           <th>移動先/移動元</th>
           <th>相手病棟</th>
           <th></th>
@@ -204,10 +204,16 @@ function ensureWardTransfersUi() {
           const mode = isTo ? 'to' : 'from';
           const otherWardId = isTo ? row.toWardId : row.fromWardId;
           const otherLabel = map.get(otherWardId) || otherWardId || '';
+          const hasPatientId = String(row.id || '').trim() !== '';
 
           return `
             <tr>
-              <td><input class="transfer-cell" value="${escapeHtml(row.id || '')}" data-i="${idx}" data-k="id"></td>
+              <td>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <input class="transfer-cell" value="${escapeHtml(row.id || '')}" data-i="${idx}" data-k="id">
+                  ${hasPatientId ? `<button class="btn btn-outline btn-sm" type="button" data-admit-transfer="${idx}" title="病棟シートに入院登録">入院</button>` : ''}
+                </div>
+              </td>
               <td>
                 <select class="transfer-cell" data-i="${idx}" data-k="mode">
                   <option value="to" ${mode === 'to' ? 'selected' : ''}>移動先</option>
@@ -409,6 +415,84 @@ refreshWardTransfersUi();
 
       if (wardTransfersMsg) {
         wardTransfersMsg.textContent = '削除しました';
+        wardTransfersMsg.classList.remove('error');
+      }
+    });
+
+    // ★ 病棟移動から病棟シートへ入院ボタン
+    wardTransfersTable?.addEventListener('click', async (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+
+      const admitIdx = t.getAttribute('data-admit-transfer');
+      if (admitIdx === null) return;
+
+      const idx = Number(admitIdx);
+      if (Number.isNaN(idx)) return;
+
+      const { userId, wardId } = getActiveUserWard();
+      if (!userId || !wardId) return;
+
+      const viewList = getWardTransfersForWard(userId, wardId);
+      const transfer = viewList[idx];
+      if (!transfer || !transfer.id) {
+        if (wardTransfersMsg) {
+          wardTransfersMsg.textContent = 'IDが入力されていません。';
+          wardTransfersMsg.classList.add('error');
+        }
+        return;
+      }
+
+      // 空きベッドを探す（患者IDが空の行）
+      const st = state();
+      const rows = st.sheetAllRows || [];
+
+      let emptyIdx = -1;
+      for (let i = 0; i < rows.length; i++) {
+        if (!String(rows[i]?.[COL_PATIENT_ID] ?? '').trim()) {
+          emptyIdx = i;
+          break;
+        }
+      }
+
+      if (emptyIdx < 0) {
+        if (wardTransfersMsg) {
+          wardTransfersMsg.textContent = '空きベッドがありません。ベッド数を増やしてください。';
+          wardTransfersMsg.classList.add('error');
+        }
+        return;
+      }
+
+      // 病棟シートに患者を追加
+      rows[emptyIdx][COL_PATIENT_ID] = transfer.id;
+
+      // 入院日を本日に設定
+      const todaySlash = normalizeDateSlash(todayJSTIsoDate());
+      rows[emptyIdx][COL_ADMIT_DATE] = todaySlash;
+      const days = calcAdmitDays(todaySlash);
+      rows[emptyIdx][COL_ADMIT_DAYS] = days;
+
+      // 保存
+      await setSheetRows(userId, wardId, rows);
+
+      // 病棟移動リストから削除
+      const all = getWardTransfers(userId);
+      let next = all;
+      if (transfer._key) {
+        next = all.filter(x => x._key !== transfer._key);
+      } else {
+        const k = `${transfer.updatedAt}|${transfer.id}|${transfer.fromWardId}|${transfer.toWardId}`;
+        next = all.filter(x => `${x.updatedAt}|${x.id}|${x.fromWardId}|${x.toWardId}` !== k);
+      }
+      setWardTransfers(userId, next);
+
+      // UI更新
+      refreshWardTransfersUi();
+      window.BMWardSheetTable?.applySearchAndSort?.();
+      updateKpiUI();
+
+      if (wardTransfersMsg) {
+        wardTransfersMsg.textContent = `「${transfer.id}」を病棟シートに移動しました。`;
         wardTransfersMsg.classList.remove('error');
       }
     });
