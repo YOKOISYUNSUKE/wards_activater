@@ -171,14 +171,16 @@ if (c === COL_BED_NO) {
                   </td>
                 `;
               }
+
               if (c === COL_PATIENT_ID) {
+                const hasPatient = String(cell || '').trim() !== '';
                 return `
                   <td>
                     <div
                       class="cell patient-id-cell"
                       data-idx="${it.idx}"
                       data-c="${c}"
-                    ><span class="patient-drag-handle" title="ドラッグで入れ替え">⠿</span><span class="patient-id-text" contenteditable="true">${escapeHtml(cell)}</span></div>
+                    >${hasPatient ? `<button type="button" class="btn-transfer-send" data-idx="${it.idx}" title="病棟移動に送る">→移</button>` : ''}<span class="patient-drag-handle" title="ドラッグで入れ替え">⠿</span><span class="patient-id-text" contenteditable="true">${escapeHtml(cell)}</span></div>
                   </td>
                 `;
               }
@@ -485,6 +487,31 @@ sheetTable.querySelectorAll('.cell[data-c="' + COL_DPC + '"]').forEach(cell => {
     openByKeyword();
   });
 });
+// 病棟移動に送るボタン
+sheetTable.querySelectorAll('.btn-transfer-send').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const rowIdx = Number(btn.getAttribute('data-idx'));
+    if (!Number.isFinite(rowIdx) || rowIdx < 0) return;
+
+    const row = st.sheetAllRows?.[rowIdx];
+    if (!row) return;
+
+    const patientId = String(row[COL_PATIENT_ID] || '').trim();
+    if (!patientId) {
+      setSheetMsg('患者IDが空です。', true);
+      return;
+    }
+
+    // ward-ui-sheet.js の sendToWardTransfer を呼び出す
+    if (window.BMWardSheetUI?.sendToWardTransfer) {
+      window.BMWardSheetUI.sendToWardTransfer(patientId, rowIdx);
+    } else {
+      setSheetMsg('病棟移動機能が利用できません。', true);
+    }
+  });
+});
+
 
   }
 

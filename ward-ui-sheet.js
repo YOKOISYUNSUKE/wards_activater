@@ -844,6 +844,50 @@ plannedAdmissionsTable?.addEventListener('click', async (e) => {
     st.sortState = { col: -1, dir: 0 };
   }
 
+// （sendToWardTransfer関数を追加し、エクスポートに含める）
+  function sendToWardTransfer(patientId, rowIdx) {
+    const { wardTransfersMsg } = dom();
+    const { userId, wardId } = getActiveUserWard();
+    if (!userId || !wardId) {
+      setSheetMsg('ユーザーまたは病棟が特定できません。', true);
+      return;
+    }
+
+    // 病棟移動UIを確保
+    ensureWardTransfersUi();
+
+    // 現在の病棟移動リストを取得
+    const all = getWardTransfers(userId);
+    const viewList = getWardTransfersForWard(userId, wardId);
+
+    if (viewList.length >= 20) {
+      if (wardTransfersMsg) {
+        wardTransfersMsg.textContent = '病棟移動は最大20件まで登録できます。';
+        wardTransfersMsg.classList.add('error');
+      }
+      return;
+    }
+
+    // 新しい移動レコードを追加（この病棟から出る＝fromWardId=wardId）
+    all.push({
+      id: patientId,
+      fromWardId: wardId,
+      toWardId: '',
+      updatedAt: new Date().toISOString(),
+    });
+    setWardTransfers(userId, all);
+
+    // UI更新
+    refreshWardTransfersUi();
+
+    if (wardTransfersMsg) {
+      wardTransfersMsg.textContent = `「${patientId}」を病棟移動に追加しました。`;
+      wardTransfersMsg.classList.remove('error');
+    }
+
+    setSheetMsg(`「${patientId}」を病棟移動に送りました。`);
+  }
+
   window.BMWardSheetUI = {
     render,
     reset,
@@ -854,6 +898,7 @@ plannedAdmissionsTable?.addEventListener('click', async (e) => {
     initPlanInputs,
     refreshPlanInputsUi,
     updateKpiUI,
+    sendToWardTransfer,
   };
 
 })();
