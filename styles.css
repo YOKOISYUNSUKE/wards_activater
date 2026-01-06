@@ -338,10 +338,10 @@ body.has-hscroll { padding-bottom: 18px; }
   color: transparent;
 }
 
-/* 予定入院 / 病棟移動 / 推定緊急入院 を横並び */
+/* 予定入院 / 病棟移動 を横並び */
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 

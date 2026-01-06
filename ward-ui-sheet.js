@@ -54,8 +54,7 @@
       wardTransfersTable: document.getElementById('wardTransfersTable'),
       wardTransfersMsg: document.getElementById('wardTransfersMsg'),
       btnAddWardTransfer: document.getElementById('btnAddWardTransfer'),
-      selectErEstimate: document.getElementById('selectErEstimate'),
-      erEstimateMsg: document.getElementById('erEstimateMsg'),
+      
     };
   }
 
@@ -499,7 +498,7 @@ refreshWardTransfersUi();
   }
 
   function refreshPlanInputsUi() {
-    const { plannedAdmissionsMsg, erEstimateMsg, selectErEstimate } = dom();
+    const { plannedAdmissionsMsg } = dom();
     const { userId, wardId } = getActiveUserWard();
     if (!userId || !wardId) return;
 
@@ -508,13 +507,7 @@ refreshWardTransfersUi();
 
     refreshWardTransfersUi();
 
-    const iso = todayJSTIsoDate();
-    const er = getErEstimate(userId, wardId, iso);
-    if (selectErEstimate) selectErEstimate.value = er || '';
-
-
     if (plannedAdmissionsMsg) plannedAdmissionsMsg.textContent = '';
-    if (erEstimateMsg) erEstimateMsg.textContent = '';
   }
 
   // 予定入院：DOM上の入力値を優先して取得（再描画やボタンクリックで入力途中の値が消えるのを防ぐ）
@@ -562,8 +555,6 @@ refreshWardTransfersUi();
       plannedAdmissionsTable,
       plannedAdmissionsMsg,
       btnAddPlannedAdmission,
-      selectErEstimate,
-      erEstimateMsg,
     } = dom();
 
     if (btnAddPlannedAdmission) {
@@ -594,21 +585,6 @@ refreshWardTransfersUi();
       });
     }
 
-    if (selectErEstimate) {
-      selectErEstimate.addEventListener('change', () => {
-        const { userId, wardId } = getActiveUserWard();
-        if (!userId || !wardId) return;
-
-        const iso = todayJSTIsoDate();
-        const val = (selectErEstimate.value || '').trim();
-        setErEstimate(userId, wardId, iso, val);
-
-        if (erEstimateMsg) {
-          erEstimateMsg.textContent = '保存しました';
-          erEstimateMsg.classList.remove('error');
-        }
-      });
-    }
 
     // ★ 予定入院患者IDクリック → 病棟シートに移動
 plannedAdmissionsTable?.addEventListener('click', async (e) => {
