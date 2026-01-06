@@ -14,8 +14,6 @@
     calcAdmitDays,
     getPlannedAdmissions,
     setPlannedAdmissions,
-    getErEstimate,
-    setErEstimate,
     getWardTransfersForWard,
     getWardTransfers,
     setWardTransfers,

@@ -12,7 +12,6 @@ const KEY_SESSION = 'bm_session_v1';
 const KEY_WARDCOUNT = 'bm_wardcount_v1';
 const KEY_WARDS = 'bm_wards_v1';
 const KEY_PLANNED_ADMISSIONS_PREFIX = 'bm_planned_admissions_v1';
-const KEY_ER_ESTIMATE_PREFIX = 'bm_er_estimate_v1';
 const KEY_WARD_TRANSFERS_PREFIX = 'bm_ward_transfers_v1';
 const KEY_DISCHARGE_PARAMS_ALL_PREFIX = 'bm_discharge_params_all_v1';
 
@@ -404,26 +403,17 @@ await cloudUpsertUserState(uid, { wards, transfers, dischargeParamsAll });
     if (Array.isArray(row.data.plannedAdmissions)) {
       saveObj(plannedAdmissionsKey(uid, row.ward_id), row.data.plannedAdmissions);
     }
-    if (row.data.erEstimateByDate && typeof row.data.erEstimateByDate === 'object') {
-      Object.entries(row.data.erEstimateByDate).forEach(([isoDate, v]) => {
-        const k = erEstimateKey(uid, row.ward_id, isoDate);
-        localStorage.setItem(k, String(v));
-      });
-    }
   }
 }
 
 
 
-// ===== 退院調整ロジック入力（予定入院 / 推定緊急入院） =====
+// ===== 退院調整ロジック入力（予定入院） =====
 function plannedAdmissionsKey(userId, wardId) {
 
   return `${KEY_PLANNED_ADMISSIONS_PREFIX}|${userId}|${wardId}`;
 }
 
-function erEstimateKey(userId, wardId, isoDate) {
-  return `${KEY_ER_ESTIMATE_PREFIX}|${userId}|${wardId}|${isoDate}`;
-}
 
 function normalizePlannedAdmissionsList(raw) {
   const list = Array.isArray(raw) ? raw : [];
@@ -453,53 +443,12 @@ function setPlannedAdmissions(userId, wardId, list) {
   scheduleCloud(async () => {
     const payload = {
       plannedAdmissions: normalized,
-      erEstimateByDate: null,
       sheetRows: null
     };
     await cloudUpsertWardState(wardId, payload);
   });
 }
 
-function getErEstimate(userId, wardId, isoDate) {
-
-  if (!userId || !wardId || !isoDate) return '';
-  const key = erEstimateKey(userId, wardId, isoDate);
-  const raw = localStorage.getItem(key);
-  const v = String(raw ?? '').trim();
-  if (!v) return '';
-  const n = Number(v);
-  if (!Number.isFinite(n)) return '';
-  const clamped = Math.max(1, Math.min(10, Math.trunc(n)));
-  return String(clamped);
-}
-
-function setErEstimate(userId, wardId, isoDate, value) {
-  if (!userId || !wardId || !isoDate) return;
-  const key = erEstimateKey(userId, wardId, isoDate);
-  const v = String(value ?? '').trim();
-  if (!v) {
-    localStorage.removeItem(key);
-  } else {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return;
-    const clamped = Math.max(1, Math.min(10, Math.trunc(n)));
-    localStorage.setItem(key, String(clamped));
-  }
-
-  scheduleCloud(async () => {
-    const map = {};
-    // 直近分だけでも良いが、互換維持のため「当該isoDateのみ」を保存
-    const raw = localStorage.getItem(key);
-    if (raw) map[isoDate] = raw;
-
-    const payload = {
-      plannedAdmissions: null,
-      erEstimateByDate: map,
-      sheetRows: null
-    };
-    await cloudUpsertWardState(wardId, payload);
-  });
-}
 
 
 // ===== 病棟移動（病棟間で共有） =====
@@ -645,8 +594,7 @@ async function setSheetRows(userId, wardId, rows, options) {
   scheduleCloud(async () => {
     const payload = {
       sheetRows: rows,
-      plannedAdmissions: null,
-      erEstimateByDate: null
+      plannedAdmissions: null
     };
     await cloudUpsertWardState(wardId, payload, uid);
   }, `ward:${uid}:${wardId}:sheetRows`);
@@ -751,8 +699,6 @@ window.WardCore = {
   calcAdmitDays,
   getPlannedAdmissions,
   setPlannedAdmissions,
-  getErEstimate,
-  setErEstimate,
   normalizeDateSlash,
   normalizeDateIso,
   makeEmptyRows,

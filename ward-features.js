@@ -24,7 +24,6 @@ const {
   parseBedNo,
   setSheetRows,
   getPlannedAdmissions,
-  getErEstimate,
 } = window.WardCore;
 
 
@@ -561,20 +560,18 @@ function runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg, onDateSele
   const session = loadSession();
   const userId = session?.userId;
   const wardId = currentWard?.id;
-  const erRaw = (userId && wardId) ? getErEstimate(userId, wardId, asOfDate) : '';
-  const erAvg = erRaw ? Number(erRaw) : 2;
   const plannedAdmissions = (userId && wardId) ? getPlannedAdmissions(userId, wardId) : [];
-const baseParamsAll = (userId && window.WardCore?.getDischargeParamsAll)
-  ? window.WardCore.getDischargeParamsAll(userId)
-  : null;
+  const baseParamsAll = (userId && window.WardCore?.getDischargeParamsAll)
+    ? window.WardCore.getDischargeParamsAll(userId)
+    : null;
 
-const constraints = {
-  ALL: {
-    beds: sheetAllRows.length,
-    target_occupancy: Number(baseParamsAll?.target_occupancy ?? 0.85),
-    hard_no_discharge_weekdays: String(baseParamsAll?.hard_no_discharge_weekdays ?? '日'),
-    weekday_weights: baseParamsAll?.weekday_weights || { '日': 10, '土': 6 },
-    ER_avg: (Number.isFinite(erAvg) && erAvg > 0) ? erAvg : Number(baseParamsAll?.ER_avg ?? 2),
+  const constraints = {
+    ALL: {
+      beds: sheetAllRows.length,
+      target_occupancy: Number(baseParamsAll?.target_occupancy ?? 0.85),
+      hard_no_discharge_weekdays: String(baseParamsAll?.hard_no_discharge_weekdays ?? '日'),
+      weekday_weights: baseParamsAll?.weekday_weights || { '日': 10, '土': 6 },
+      ER_avg: Number(baseParamsAll?.ER_avg ?? 2),
     fluctuation_limit: Number(baseParamsAll?.fluctuation_limit ?? 3),
     scoring_weights: baseParamsAll?.scoring_weights || {
       w_dpc: 40,
