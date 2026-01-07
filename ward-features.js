@@ -584,7 +584,6 @@ function runDischargeOptimize(sheetAllRows, currentWard, setSheetMsg, onDateSele
     risk_params: baseParamsAll?.risk_params || {
       cap_th1: 0.85,
       cap_th2: 0.95,
-      nurse_max: 5,
     },
   }
 };

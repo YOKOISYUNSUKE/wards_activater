@@ -151,8 +151,9 @@ function parseConstraintsTable(rows, headerRowIndex = 0) {
       hard_no_discharge_weekdays: r?.[cHardNo] ?? '',
       weekday_weights: safeJsonParse(r?.[cWkWeights], {}),
       ER_avg: Number(r?.[cErAvg] ?? 0),
-      scoring_weights: safeJsonParse(r?.[cScoreW], { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 }),
-      risk_params: safeJsonParse(r?.[cRisk], { cap_th1: 0.85, cap_th2: 0.95, nurse_max: 5 }),
+      scoring_weights: safeJsonParse(r?.[cScoreW], { w_dpc: 40, w_cap: 35, w_adj: 10, w_wk: 10, w_dev: 5 }),
+      risk_params: safeJsonParse(r?.[cRisk], { cap_th1: 0.85, cap_th2: 0.95 }),
+
     };
   }
   return constraints;
@@ -317,10 +318,6 @@ function generateCandidateDates(patient, { settings, dpcMaster, constraints, asO
     else if (occupancyRate >= cap_th1) F_cap = 70;
     else F_cap = Math.round((1 - occupancyRate) * 100);
 
-    // 看護必要度ペナルティ（gas.gs: acuity/nurse_max*10）
-    const nurseMax = Number(riskParams.nurse_max ?? 5);
-    const acuity = Number(patient?.nursing_acuity) || 0;
-    const F_acu = Math.round((acuity / nurseMax) * 10);
 
     // 曜日ペナルティ（gas.gs は土日だけ）
     const dayOfWeek = candidateDate.getDay();
@@ -350,21 +347,20 @@ function generateCandidateDates(patient, { settings, dpcMaster, constraints, asO
     const F_er = Math.round((1 - occupancyRate) * ER_avg * 20);
 
     // 総合スコア計算（gas.gsの式をそのまま）
-    const w_dpc = Number(weights.w_dpc ?? 40);
-    const w_cap = Number(weights.w_cap ?? 35);
-    const w_n = Number(weights.w_n ?? 10);
-    const w_adj = Number(weights.w_adj ?? 10);
-    const w_wk = Number(weights.w_wk ?? 10);
-    const w_dev = Number(weights.w_dev ?? 5);
+const w_dpc = Number(weights.w_dpc ?? 40);
+const w_cap = Number(weights.w_cap ?? 35);
+const w_adj = Number(weights.w_adj ?? 10);
+const w_wk = Number(weights.w_wk ?? 10);
+const w_dev = Number(weights.w_dev ?? 5);
 
-    const score_total =
-      w_dpc * (F_dpc / 100) * 40 +
-      w_cap * (F_cap / 100) * 35 -
-      w_n * F_acu -
-      w_adj * (P_risk / 100) * 10 -
-      w_wk * P_hard -
-      w_dev * (F_ops / 100) * 5 -
-      P_fluctuation;
+const score_total =
+  w_dpc * (F_dpc / 100) * 40 +
+  w_cap * (F_cap / 100) * 35 -
+  w_adj * (P_risk / 100) * 10 -
+  w_wk * P_hard -
+  w_dev * (F_ops / 100) * 5 -
+  P_fluctuation;
+
 
     // ハード制約：退院不可曜日
     let hard_ng_reason = '';

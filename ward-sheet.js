@@ -182,13 +182,16 @@
       });
     }
 
-  if (btnDischargeParams) {
-    btnDischargeParams.addEventListener('click', () => {
-      const session = loadSession();
-      if (!session?.userId) return;
-      window.BMWardWardList?.openDischargeParamsDialog?.(session.userId);
-    });
-  }
+// 同一画面で render() が複数回走るため、二重配線を防ぐ
+if (btnDischargeParams && !btnDischargeParams.dataset.wired) {
+  btnDischargeParams.dataset.wired = '1';
+  btnDischargeParams.addEventListener('click', () => {
+    const session = loadSession();
+    if (!session?.userId) return;
+    window.BMWardWardList?.openDischargeParamsDialog?.(session.userId);
+  });
+}
+
 
 
     if (btnDischargeOptimize) {

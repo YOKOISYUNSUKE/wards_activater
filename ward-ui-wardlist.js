@@ -144,8 +144,14 @@
     const noDis = (params.hard_no_discharge_weekdays || '').trim();
 
     const parts = [];
-    if (occPct !== null) parts.push(`目標稼働率 ${occPct}%`);
-    if (noDis) parts.push(`退院不可 ${noDis}`);
+const nursingMin = Number(params.nursing_kpi_min);
+const nursingMinPct = Number.isFinite(nursingMin)
+  ? Math.max(0, Math.min(100, Math.round(nursingMin)))
+  : null;
+
+if (occPct !== null) parts.push(`目標稼働率 ${occPct}%`);
+if (noDis) parts.push(`退院不可 ${noDis}`);
+if (nursingMinPct !== null && nursingMinPct > 0) parts.push(`看護必要度min ${nursingMinPct}%`);
     el.textContent = parts.length ? parts.join(' / ') : '目標稼働率などの設定';
   }
 
@@ -169,7 +175,7 @@ function openDischargeParamsDialog(userId) {
       hard_no_discharge_weekdays: '日',
       weekday_weights: { '日': 10, '土': 6 },
       ER_avg: 2,
-      risk_params: { cap_th1: 0.85, cap_th2: 0.95, nurse_max: 5 },
+      risk_params: { cap_th1: 0.85, cap_th2: 0.95 },
       scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
     };
 
@@ -216,10 +222,12 @@ function openDischargeParamsDialog(userId) {
           </div>
         </div>
 
-        <div class="form-row">
-          <label>nurse_max</label>
-          <input id="dp_nurse_max" type="number" min="0" max="50" step="1" value="${escapeHtml(String(current.risk_params?.nurse_max ?? 5))}" />
-        </div>
+<div class="form-row">
+  <label>看護必要度min（①②③の割合：% / 0=制約なし）</label>
+  <input id="dp_nursing_kpi_min" type="number" min="0" max="100" step="1"
+    value="${escapeHtml(String(current.nursing_kpi_min ?? 0))}" />
+</div>
+
 </div>
 
       <div class="popup-foot">
@@ -258,19 +266,23 @@ function close() {
         const fluctuation = Number(document.getElementById('dp_fluctuation')?.value);
         const capTh1 = Number(document.getElementById('dp_cap_th1')?.value);
         const capTh2 = Number(document.getElementById('dp_cap_th2')?.value);
-        const nurseMax = Number(document.getElementById('dp_nurse_max')?.value);
+        const nursingKpiMin = Number(document.getElementById('dp_nursing_kpi_min')?.value);
 
         const nextParams = {
           ...current,
           target_occupancy: Number.isFinite(occPct) ? Math.max(0, Math.min(1, occPct / 100)) : current.target_occupancy,
           hard_no_discharge_weekdays: noDis,
           ER_avg: Number.isFinite(erAvg) ? Math.max(0, erAvg) : current.ER_avg,
+
+  nursing_kpi_min: Number.isFinite(nursingKpiMin)
+    ? Math.max(0, Math.min(100, nursingKpiMin))
+    : current.nursing_kpi_min,
+
           fluctuation_limit: Number.isFinite(fluctuation) ? Math.max(0, Math.min(20, fluctuation)) : current.fluctuation_limit,
           risk_params: {
             ...(current.risk_params || {}),
             cap_th1: Number.isFinite(capTh1) ? Math.max(0, Math.min(1, capTh1)) : current.risk_params?.cap_th1,
             cap_th2: Number.isFinite(capTh2) ? Math.max(0, Math.min(1, capTh2)) : current.risk_params?.cap_th2,
-            nurse_max: Number.isFinite(nurseMax) ? Math.max(0, nurseMax) : current.risk_params?.nurse_max,
           },
         };
 

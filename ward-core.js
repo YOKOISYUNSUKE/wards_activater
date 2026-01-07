@@ -12,9 +12,9 @@ const KEY_SESSION = 'bm_session_v1';
 const KEY_WARDCOUNT = 'bm_wardcount_v1';
 const KEY_WARDS = 'bm_wards_v1';
 const KEY_PLANNED_ADMISSIONS_PREFIX = 'bm_planned_admissions_v1';
+const KEY_ER_ESTIMATE_PREFIX = 'bm_er_estimate_v1';
 const KEY_WARD_TRANSFERS_PREFIX = 'bm_ward_transfers_v1';
 const KEY_DISCHARGE_PARAMS_ALL_PREFIX = 'bm_discharge_params_all_v1';
-
 
 // ===== Session =====
 // Supabase移行後も、既存UI（病棟一覧/病棟シート）が bm_session_v1 を参照するため保持する
@@ -139,8 +139,8 @@ function defaultDischargeParamsAll() {
     weekday_weights: { '日': 10, '土': 6 },
     ER_avg: 2,
     fluctuation_limit: 3,  // 入院患者数の変動許容範囲（人）
-    scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
-    risk_params: { cap_th1: 0.85, cap_th2: 0.95, nurse_max: 5 },
+    scoring_weights: { w_dpc: 40, w_cap: 35, w_adj: 10, w_wk: 10, w_dev: 5 },
+    risk_params: { cap_th1: 0.85, cap_th2: 0.95 },
   };
 }
 
@@ -307,7 +307,43 @@ async function cloudDownloadWardStates(uid) {
   return Array.isArray(res?.data) ? res.data : [];
 
 }
-
+// 行 310の後に追加（cloudDownload系関数の近く）
+async function cloudSyncDownAll(uid) {
+  const userState = await cloudDownloadUserState(uid);
+  const wardStates = await cloudDownloadWardStates(uid);
+  
+  // ユーザー状態の適用
+  if (userState?.data) {
+    const { wards, transfers, dischargeParamsAll } = userState.data;
+    
+    if (wards) setWardsForUser(uid, wards);
+    if (transfers) {
+      const key = wardTransfersKey(uid);
+      saveObj(key, normalizeWardTransfersList(transfers));
+    }
+    if (dischargeParamsAll) {
+      setDischargeParamsAll(uid, dischargeParamsAll, { skipCloud: true });
+    }
+  }
+  
+  // 病棟状態の適用
+  for (const ws of wardStates) {
+    const { ward_id, data } = ws;
+    if (data?.sheetRows) {
+      await setSheetRows(uid, ward_id, data.sheetRows, { skipCloud: true });
+    }
+    if (data?.plannedAdmissions) {
+      const key = plannedAdmissionsKey(uid, ward_id);
+      saveObj(key, normalizePlannedAdmissionsList(data.plannedAdmissions));
+    }
+    if (data?.erEstimate) {
+      const key = erEstimateKey(uid, ward_id);
+      saveObj(key, normalizeErEstimate(data.erEstimate));
+    }
+  }
+  
+  return { userState, wardStates };
+}
 
 function pickArrayFromMaybeMap(raw, uid) {
   if (Array.isArray(raw)) return raw;
@@ -339,14 +375,18 @@ async function cloudSyncDownAll() {
 
   const u = await cloudDownloadUserState(uid);
   if (u?.data) {
-    const wardsRaw = u.data.wards;
-    const transfersRaw = u.data.transfers;
+const wardsRaw = u.data.wards;
+const transfersRaw = u.data.transfers;
+const dischargeParamsAllRaw = u.data.dischargeParamsAll;
 
-    const wardsList = normalizeWardsList(pickArrayFromMaybeMap(wardsRaw, uid));
-    const transfersList = normalizeWardTransfersList(pickArrayFromMaybeMap(transfersRaw, uid));
+const wardsList = normalizeWardsList(pickArrayFromMaybeMap(wardsRaw, uid));
+const transfersList = normalizeWardTransfersList(pickArrayFromMaybeMap(transfersRaw, uid));
+const dischargeParamsAll = normalizeDischargeParamsAll(dischargeParamsAllRaw);
 
-    saveObj(KEY_WARDS, { [uid]: wardsList });
-    saveObj(wardTransfersKey(uid), transfersList);
+saveObj(KEY_WARDS, { [uid]: wardsList });
+saveObj(wardTransfersKey(uid), transfersList);
+saveObj(dischargeParamsAllKey(uid), dischargeParamsAll);
+
 
     // 旧形式（Map保存）からの自動移行：配列形式へ上書き保存
     const needsMigrate =
@@ -408,10 +448,78 @@ await cloudUpsertUserState(uid, { wards, transfers, dischargeParamsAll });
 
 
 
-// ===== 退院調整ロジック入力（予定入院） =====
+// ===== 退院調整ロジック入力（予定入院 / 推定緊急入院） =====
 function plannedAdmissionsKey(userId, wardId) {
 
   return `${KEY_PLANNED_ADMISSIONS_PREFIX}|${userId}|${wardId}`;
+}
+
+function erEstimateKey(userId, wardId, isoDate) {
+  return `${KEY_ER_ESTIMATE_PREFIX}|${userId}|${wardId}|${isoDate}`;
+}
+
+function normalizeErEstimateValue(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+// 推定緊急入院（ER）: 日付単位の推定人数
+function getErEstimate(userId, wardId, isoDate) {
+  if (!userId || !wardId || !isoDate) return 0;
+  const key = erEstimateKey(userId, wardId, isoDate);
+  const raw = loadObj(key, null);
+  return normalizeErEstimateValue(raw);
+}
+
+function setErEstimate(userId, wardId, isoDate, value, options) {
+  if (!userId || !wardId || !isoDate) return;
+
+  const key = erEstimateKey(userId, wardId, isoDate);
+  const normalized = normalizeErEstimateValue(value);
+  saveObj(key, normalized);
+
+  const skipCloud = options?.skipCloud;
+  if (skipCloud) return;
+
+  scheduleCloud(async () => {
+    // ward state に日付付きで部分更新（他キーを消さない）
+    await cloudUpsertWardState(wardId, { erEstimates: { [isoDate]: normalized } });
+  }, `ward:${userId}:${wardId}:erEstimate:${isoDate}`);
+}
+
+
+function dischargeParamsAllKey(userId) {
+  return `${KEY_DISCHARGE_PARAMS_ALL_PREFIX}|${userId}`;
+}
+
+function normalizeDischargeParamsAll(raw) {
+  const obj = (raw && typeof raw === 'object') ? raw : {};
+  const n = Number(obj.nursing_kpi_min);
+
+  return {
+    nursing_kpi_min: Number.isFinite(n) ? Math.max(0, n) : 0
+  };
+}
+
+function getDischargeParamsAll(userId) {
+  if (!userId) return normalizeDischargeParamsAll({});
+  const key = dischargeParamsAllKey(userId);
+  const raw = loadObj(key, {});
+  return normalizeDischargeParamsAll(raw);
+}
+
+function setDischargeParamsAll(userId, params) {
+  if (!userId) return;
+
+  const key = dischargeParamsAllKey(userId);
+  const normalized = normalizeDischargeParamsAll(params);
+  saveObj(key, normalized);
+
+  scheduleCloud(async () => {
+    const wards = getWardsForUser(userId);
+    const transfers = getWardTransfers(userId);
+    await cloudUpsertUserState(userId, { wards, transfers, dischargeParamsAll: normalized });
+  }, `user:${userId}:dischargeParamsAll`);
 }
 
 
@@ -487,6 +595,7 @@ function setWardTransfers(userId, list) {
   scheduleCloud(async () => {
     const transfers = getWardTransfers(userId);
     const wards = getWardsForUser(userId);
+    const dischargeParamsAll = getDischargeParamsAll(userId);
     await cloudUpsertUserState(userId, { wards, transfers });
   });
 }
@@ -600,7 +709,6 @@ async function setSheetRows(userId, wardId, rows, options) {
   }, `ward:${uid}:${wardId}:sheetRows`);
 }
 
-// NOTE: setSheetRows は上で定義済み（クラウド同期あり）。
 
 
 async function getSheetRows(userId, wardId) {
@@ -699,6 +807,10 @@ window.WardCore = {
   calcAdmitDays,
   getPlannedAdmissions,
   setPlannedAdmissions,
+  getErEstimate,
+  setErEstimate,
+  getDischargeParamsAll,
+  setDischargeParamsAll,
   normalizeDateSlash,
   normalizeDateIso,
   makeEmptyRows,
@@ -718,8 +830,6 @@ window.WardCore = {
   setWardTransfers,
   getWardTransfersForWard,
   cloudSyncDownAll,
-  getDischargeParamsAll,
-  setDischargeParamsAll,
   defaultDischargeParamsAll,
 
 
