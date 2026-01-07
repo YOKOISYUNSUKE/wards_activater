@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'bm-cache-v01.07.2';
+const CACHE_NAME = 'bm-cache-v01.07.3';
 const ASSETS = [
   './',
   './index.html',

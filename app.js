@@ -18,15 +18,14 @@ const KEY_LOGIN_EMAIL = 'bm_login_email_v1';
 const authView = document.getElementById('authView');
 const wardView = document.getElementById('wardView');
 const sheetView = document.getElementById('sheetView');
-
 const inputEmail = document.getElementById('inputEmail');
 const inputPass = document.getElementById('inputPass');
-
 const btnLogin = document.getElementById('btnLogin');
 const btnSignup = document.getElementById('btnSignup');
 const btnLogout = document.getElementById('btnLogout');
-
 const authMsg = document.getElementById('authMsg');
+const headerUserInfo = document.getElementById('headerUserInfo');
+
 
 // ===== Utilities =====
 function nowIso() { return new Date().toISOString(); }
@@ -231,6 +230,11 @@ async function login() {
   // いったん病棟画面へ（同期前描画はしない）
   await render(false);
 
+//ヘッダー右側のユーザー情報を表示
+if (headerUserInfo) {
+  headerUserInfo.classList.remove('hidden');
+}
+
   // 同期中スピナー
   setSyncOverlay(true, 'クラウドから同期中…');
 
@@ -248,6 +252,10 @@ async function logout() {
   await CloudSupabase.signOut();
 
 setMsg('ログアウトしました。');
+
+if (headerUserInfo) {
+  headerUserInfo.classList.add('hidden');
+}
 
 // 既存UIは bm_session_v1 を参照するため、ログアウト時に明示的に破棄
 try {

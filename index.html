@@ -25,6 +25,11 @@
         </div>
       </div>
       <div class="topbar-right">
+    <div id="headerUserInfo" class="header-user-info hidden">
+      <span class="user-email">ログイン中：<span id="currentUser"></span></span>
+      <span class="user-date">本日：<span id="todayJst"></span></span>
+    </div>
+
         <button id="btnLogout" class="btn btn-ghost hidden" type="button">ログアウト</button>
       </div>
     </header>
@@ -64,12 +69,40 @@
   <div class="ward-header-top">
     <div class="ward-header-left">
       <h2 class="card-title">病棟を選択</h2>
-      <p class="muted">
-        ログイン中：<span id="currentUser"></span><br>
-        本日（日本時間）：<span id="todayJst"></span>
-      </p>
     </div>
     <div class="ward-header-right">
+
+  <!-- ★ 病院全体KPI（右上表示） -->
+  <div class="kpi-group kpi-header">
+    <div class="kpi-row-bar" aria-label="病院全体KPI">
+      <div class="kpi-box">
+        <p class="kpi-title">平均在院日数</p>
+        <div class="kpi-row">
+          <span id="hospitalLosInpatients" class="kpi-subnum">-名</span>
+          <span id="hospitalLosAvg" class="kpi-num">-日</span>
+        </div>
+      </div>
+
+      <div class="kpi-box">
+        <p class="kpi-title">看護必要度</p>
+        <div class="kpi-row">
+          <span id="hospitalNursingAvgAbc" class="kpi-subnum">-/-(3ヶ月)</span>
+          <span id="hospitalNursingAvg" class="kpi-num">-%</span>
+        </div>
+      </div>
+
+      <div class="kpi-box">
+        <p class="kpi-title">稼働率</p>
+        <div class="kpi-row">
+          <span id="hospitalOccFraction" class="kpi-subnum">0/0</span>
+          <span id="hospitalOccPercent" class="kpi-num">0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
       <!-- 病棟数選択カード（ヘッダー用） -->
       <div class="ward-header-card wardcount">
         <div class="wardcount-head">
@@ -98,43 +131,6 @@
       </div>
     </div>
   </div>
-
-  <h3 class="sheet-subtitle" style="margin-top:10px;">病院全体KPI（全病棟合算）</h3>
-
-<!-- 病棟数選択とKPIカードを横並びにするラッパー -->
-<div class="top-info-wrapper">
-  <!-- KPIカード群 -->
-  <div class="kpi-group">
-    <div class="kpi-row-bar" aria-label="病院全体KPI">
-      <div class="kpi-box">
-        <p class="kpi-title">平均在院日数</p>
-        <div class="kpi-row">
-          <span id="hospitalLosInpatients" class="kpi-subnum">-名</span>
-          <span id="hospitalLosAvg" class="kpi-num">-日</span>
-        </div>
-        <p class="kpi-sub">入院患者のみ</p>
-      </div>
-
-      <div class="kpi-box">
-        <p class="kpi-title">看護必要度</p>
-        <div class="kpi-row">
-          <span id="hospitalNursingAvgAbc" class="kpi-subnum">-/-(3ヶ月)</span>
-          <span id="hospitalNursingAvg" class="kpi-num">-%</span>
-        </div>
-        <p class="kpi-sub">①②③該当/延べ入院患者</p>
-      </div>
-
-      <div class="kpi-box">
-        <p class="kpi-title">稼働率</p>
-        <div class="kpi-row">
-          <span id="hospitalOccFraction" class="kpi-subnum">0/0</span>
-          <span id="hospitalOccPercent" class="kpi-num">0%</span>
-        </div>
-        <p class="kpi-sub">入院人数/病床数</p>
-      </div>
-    </div>
-  </div>
-</div>
 
 
 

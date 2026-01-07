@@ -937,3 +937,41 @@ body.has-hscroll {
   outline-offset: -2px;
   box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
 }
+/* ===== KPI をヘッダー右上に配置 ===== */
+.kpi-header {
+  margin-bottom: 8px;
+}
+
+.kpi-header .kpi-row-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.ward-header-right {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ward-header-right .kpi-box {
+  min-width: 110px;
+}
+/* ヘッダー右側：ユーザー情報 */
+.header-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.header-user-info .user-email {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.header-user-info .user-date {
+  font-size: 11px;
+}
