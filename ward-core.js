@@ -138,11 +138,16 @@ function defaultDischargeParamsAll() {
     hard_no_discharge_weekdays: '日',
     weekday_weights: { '日': 10, '土': 6 },
     ER_avg: 2,
-    fluctuation_limit: 3,  // 入院患者数の変動許容範囲（人）
-    scoring_weights: { w_dpc: 40, w_cap: 35, w_adj: 10, w_wk: 10, w_dev: 5 },
+    fluctuation_limit: 3,
+    scoring_weights: { w_dpc: 40, w_cap: 35, w_n: 10, w_adj: 10, w_wk: 10, w_dev: 5 },
+    nursing_kpi_min: 0,
+    los_policy: 'penalty',
+    los_avg_max: 0,
+    los_penalty_weight: 8,
     risk_params: { cap_th1: 0.85, cap_th2: 0.95 },
   };
 }
+
 
 function normalizeDischargeParamsAll(raw) {
   const d = defaultDischargeParamsAll();

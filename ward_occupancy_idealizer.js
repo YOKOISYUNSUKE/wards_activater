@@ -346,6 +346,18 @@ function generateCandidateDates(patient, { settings, dpcMaster, constraints, asO
     const ER_avg = Number(wardConstraints.ER_avg ?? 0);
     const F_er = Math.round((1 - occupancyRate) * ER_avg * 20);
 
+    // 平均在院日数KPI（近似）
+    const los_avg_max = Number(wardConstraints.los_avg_max ?? 0);
+    const los_policy = String(wardConstraints.los_policy ?? 'penalty'); // 'hard' | 'penalty'
+    const los_penalty_weight = Number(wardConstraints.los_penalty_weight ?? 8);
+    let P_los = 0;
+    if (Number.isFinite(los_avg_max) && los_avg_max > 0 && los > los_avg_max) {
+      const over = los - los_avg_max;
+      if (los_policy !== 'hard') {
+        P_los = over * (Number.isFinite(los_penalty_weight) ? los_penalty_weight : 8);
+      }
+    }
+
     // 総合スコア計算（gas.gsの式をそのまま）
 const w_dpc = Number(weights.w_dpc ?? 40);
 const w_cap = Number(weights.w_cap ?? 35);
@@ -359,7 +371,9 @@ const score_total =
   w_adj * (P_risk / 100) * 10 -
   w_wk * P_hard -
   w_dev * (F_ops / 100) * 5 -
-  P_fluctuation;
+  P_fluctuation -
+  P_los;
+
 
 
     // ハード制約：退院不可曜日
@@ -373,6 +387,12 @@ const score_total =
     if (noDaysList.includes(dayName)) {
       hard_ng_reason = '曜日制約違反';
     }
+
+    // ハード制約：平均在院日数（近似：この患者のLOSが上限超過なら除外）
+    if (!hard_ng_reason && (los_policy === 'hard') && Number.isFinite(los_avg_max) && los_avg_max > 0 && los > los_avg_max) {
+      hard_ng_reason = '平均在院日数上限';
+    }
+
 
     candidates.push({
       date: new Date(candidateDate.getTime()),
